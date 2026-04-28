@@ -18,7 +18,7 @@
       </header>
 
       <section id="status-panel" class="status-card" aria-label="Refresh status">
-        <div class="countdown-ring" aria-hidden="true">
+        <button id="ring-action" class="countdown-ring" type="button" aria-label="Start refresh">
           <svg class="progress-ring" viewBox="0 0 120 120" focusable="false">
             <circle class="progress-track" cx="60" cy="60" r="52" pathLength="100"></circle>
             <circle id="progress-ring-value" class="progress-value" cx="60" cy="60" r="52" pathLength="100"></circle>
@@ -27,7 +27,7 @@
             <span class="status-kicker">Next refresh</span>
             <strong id="countdown">Not scheduled</strong>
           </div>
-        </div>
+        </button>
         <p id="status-message">Choose an interval and start refresh for this tab.</p>
         <dl class="stats-list">
           <div>

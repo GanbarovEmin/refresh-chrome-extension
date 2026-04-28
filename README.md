@@ -18,6 +18,7 @@ typing without a click does not restart the timer.
 - Typing protection postpones refresh while editable fields or dirty forms are detected.
 - Provides `Pause`, `Resume`, `Reset timer`, `Refresh now`, and `Stop`.
 - Shows live countdown with a Material-style progress ring, next refresh time, refresh history, and session stats.
+- The countdown ring can also start, pause, or resume refresh without scrolling to the bottom action button.
 - Saves site profiles for domains you reuse often.
 - Blocks refresh on domains marked as `Never run`.
 - Shows an `Active tabs` overview with quick open/stop controls.
@@ -50,6 +51,8 @@ typing without a click does not restart the timer.
   select, or contenteditable fields are active or dirty.
 - `Pause` stops the countdown without deleting the session.
 - `Resume` continues from the saved remaining time.
+- The countdown ring mirrors the main `Start refresh` / `Pause` / `Resume`
+  action and supports mouse and keyboard activation.
 - `Reset timer` restarts the countdown for the full selected interval without
   reloading the page.
 - `Refresh now` reloads the tab immediately and schedules the next refresh for

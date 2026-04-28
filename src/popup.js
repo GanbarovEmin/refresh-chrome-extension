@@ -1,5 +1,6 @@
 const stateLabel = document.querySelector("#tab-state");
 const statusPanel = document.querySelector("#status-panel");
+const ringActionButton = document.querySelector("#ring-action");
 const progressRingValue = document.querySelector("#progress-ring-value");
 const countdown = document.querySelector("#countdown");
 const statusMessage = document.querySelector("#status-message");
@@ -51,19 +52,8 @@ async function init() {
   await refreshState();
   await refreshWorkspaceState();
 
-  toggleButton.addEventListener("click", async () => {
-    if (isBusy) {
-      return;
-    }
-
-    if (currentSession && currentSession.enabled && currentSession.paused) {
-      await resumeRefresh();
-    } else if (currentSession && currentSession.enabled) {
-      await pauseRefresh();
-    } else {
-      await startRefresh();
-    }
-  });
+  toggleButton.addEventListener("click", runPrimaryRefreshAction);
+  ringActionButton.addEventListener("click", runPrimaryRefreshAction);
 
   resetButton.addEventListener("click", () => {
     runSessionAction("REFRESH_RESET_TIMER").catch((error) => {
@@ -272,6 +262,20 @@ async function stopRefresh() {
   }
 }
 
+async function runPrimaryRefreshAction() {
+  if (isBusy) {
+    return;
+  }
+
+  if (currentSession && currentSession.enabled && currentSession.paused) {
+    await resumeRefresh();
+  } else if (currentSession && currentSession.enabled) {
+    await pauseRefresh();
+  } else {
+    await startRefresh();
+  }
+}
+
 async function saveCurrentSiteProfile() {
   const selection = currentSession && currentSession.enabled
     ? { ok: true, intervalSeconds: currentSession.intervalSeconds }
@@ -475,6 +479,7 @@ function renderState(session) {
     renderHistory(session.history);
     setSessionActionsDisabled(true);
     toggleButton.textContent = "Start refresh";
+    syncRingActionState();
     return;
   }
 
@@ -492,6 +497,7 @@ function renderState(session) {
     renderHistory([]);
     setSessionActionsDisabled(true);
     toggleButton.textContent = "Start refresh";
+    syncRingActionState();
     return;
   }
 
@@ -545,6 +551,7 @@ function renderState(session) {
   lastRefreshValue.textContent = formatTimestamp(session.lastRefreshAt);
   refreshCountValue.textContent = String(Number(session.refreshCount || 0));
   renderHistory(session.history);
+  syncRingActionState();
 }
 
 function renderValidationError(message) {
@@ -565,6 +572,7 @@ function renderValidationError(message) {
   setSessionActionsDisabled(true);
   customMinutesInput.setAttribute("aria-invalid", "true");
   toggleButton.textContent = "Start refresh";
+  syncRingActionState();
 }
 
 function clearStatusClasses() {
@@ -801,6 +809,7 @@ function renderDomainBlockedStatus() {
   renderHistory([]);
   setSessionActionsDisabled(true);
   toggleButton.textContent = "Start refresh";
+  syncRingActionState();
 }
 
 function renderActiveSessions(sessions = [], total = sessions.length) {
@@ -972,6 +981,7 @@ function setBusy(nextBusy) {
   refreshNowButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
   stopButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
   setSafetyControlsDisabled(nextBusy);
+  ringActionButton.disabled = nextBusy;
 
   if (siteContext) {
     renderSiteContext();
@@ -986,7 +996,11 @@ function applySiteRestriction() {
   const hasRunningSession = Boolean(currentSession && currentSession.enabled);
 
   if (!isBusy) {
-    toggleButton.disabled = Boolean(isBlocked && !hasRunningSession);
+    const disabled = Boolean(isBlocked && !hasRunningSession);
+    toggleButton.disabled = disabled;
+    ringActionButton.disabled = disabled;
+  } else {
+    ringActionButton.disabled = true;
   }
 }
 
@@ -1008,6 +1022,14 @@ function renderError(message) {
   renderHistory([]);
   setSessionActionsDisabled(true);
   toggleButton.textContent = "Start refresh";
+  syncRingActionState();
+}
+
+function syncRingActionState() {
+  const label = toggleButton.textContent.trim() || "Start refresh";
+  ringActionButton.setAttribute("aria-label", label);
+  ringActionButton.title = label;
+  ringActionButton.disabled = Boolean(toggleButton.disabled);
 }
 
 function getErrorMessage(error) {
