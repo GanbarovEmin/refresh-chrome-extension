@@ -1,20 +1,19 @@
 :root {
   color-scheme: light;
-  --bg: #f5f7fb;
-  --surface: rgba(255, 255, 255, 0.88);
-  --surface-strong: #ffffff;
-  --text: #18202c;
-  --muted: #5e6673;
-  --subtle: #8a93a3;
-  --line: rgba(26, 38, 64, 0.1);
-  --line-strong: rgba(26, 38, 64, 0.16);
-  --hover: rgba(26, 115, 232, 0.08);
-  --selected: rgba(26, 115, 232, 0.12);
+  --bg: #f8fafd;
+  --surface: #ffffff;
+  --surface-muted: #f1f3f4;
+  --surface-hover: #f8fafd;
+  --text: #202124;
+  --muted: #5f6368;
+  --subtle: #80868b;
+  --line: #dadce0;
+  --line-soft: #e8eaed;
   --blue: #1a73e8;
-  --blue-deep: #0b57d0;
-  --blue-soft: #5aa7ff;
+  --blue-hover: #1765cc;
+  --blue-bg: #e8f0fe;
   --green: #188038;
-  --amber: #c27803;
+  --amber: #f29900;
   --red: #d93025;
   --ring-color: var(--blue);
 }
@@ -28,9 +27,7 @@ body {
   max-height: 620px;
   margin: 0;
   overflow-y: auto;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(90, 167, 255, 0.22), transparent 34%),
-    linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+  background: var(--bg);
   color: var(--text);
   font-family: "Google Sans", Roboto, Arial, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -44,8 +41,8 @@ select {
 
 .popup-shell {
   display: grid;
-  gap: 14px;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px;
 }
 
 .brand {
@@ -53,14 +50,14 @@ select {
   grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
+  padding: 2px 0 4px;
 }
 
 .brand-icon {
   display: block;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  box-shadow: 0 8px 18px rgba(26, 115, 232, 0.18);
+  border-radius: 8px;
 }
 
 h1,
@@ -72,12 +69,12 @@ p {
 h1 {
   color: var(--text);
   font-size: 18px;
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: 500;
+  line-height: 1.25;
 }
 
 .brand p {
-  margin-top: 3px;
+  margin-top: 2px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
@@ -91,7 +88,7 @@ h1 {
   min-width: 70px;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
   text-align: right;
 }
@@ -154,12 +151,19 @@ h1 {
 .settings-group,
 .site-panel,
 .history-panel,
+.active-tabs-panel,
+.status-card {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.control-group,
+.settings-group,
+.site-panel,
+.history-panel,
 .active-tabs-panel {
   padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--surface);
-  box-shadow: 0 10px 28px rgba(31, 43, 68, 0.06);
 }
 
 .section-row {
@@ -172,7 +176,7 @@ h1 {
 h2 {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -180,15 +184,19 @@ h2 {
 .interval-options {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.62);
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
 }
 
 .interval-option {
   min-width: 0;
+}
+
+.interval-option + .interval-option {
+  border-left: 1px solid var(--line-soft);
 }
 
 .interval-option input {
@@ -201,27 +209,23 @@ h2 {
 
 .interval-option span {
   display: grid;
-  min-height: 32px;
+  min-height: 34px;
   place-items: center;
-  border: 1px solid transparent;
-  border-radius: 12px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .interval-option span:hover {
-  background: var(--hover);
+  background: var(--surface-hover);
 }
 
 .interval-option input:checked + span {
-  border-color: rgba(26, 115, 232, 0.16);
-  background: var(--selected);
-  color: var(--blue-deep);
-  box-shadow: inset 0 0 0 1px rgba(26, 115, 232, 0.06);
+  background: var(--blue-bg);
+  color: var(--blue);
 }
 
 .interval-option input:disabled + span {
@@ -240,7 +244,7 @@ h2 {
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 .active-tab-action:focus-visible {
-  outline: 3px solid rgba(26, 115, 232, 0.22);
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
@@ -249,7 +253,7 @@ h2 {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .custom-field.is-visible {
@@ -266,22 +270,22 @@ h2 {
 .custom-field input {
   min-height: 38px;
   width: 100%;
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   padding: 0 11px;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--surface);
   color: var(--text);
   font-size: 14px;
   outline: none;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .custom-field input:hover {
-  border-color: rgba(26, 38, 64, 0.22);
+  border-color: var(--subtle);
 }
 
 .custom-field input:disabled {
-  background: rgba(248, 250, 253, 0.72);
+  background: var(--surface-muted);
   color: var(--muted);
 }
 
@@ -297,11 +301,16 @@ h2 {
   min-height: 38px;
 }
 
+.setting-row + .setting-row {
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
 .setting-row strong {
   display: block;
   color: var(--text);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.25;
 }
 
@@ -320,11 +329,11 @@ h2 {
 }
 
 .setting-row select {
-  min-height: 31px;
+  min-height: 32px;
   max-width: 132px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
   color: var(--text);
   font-size: 11px;
   outline: none;
@@ -334,13 +343,7 @@ h2 {
 .status-card {
   display: grid;
   gap: 11px;
-  padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.84)),
-    radial-gradient(circle at 50% 0%, rgba(90, 167, 255, 0.18), transparent 64%);
-  box-shadow: 0 18px 42px rgba(31, 43, 68, 0.14);
+  padding: 14px;
 }
 
 .status-card.is-active {
@@ -364,8 +367,8 @@ h2 {
 .countdown-ring {
   position: relative;
   display: grid;
-  width: 142px;
-  height: 142px;
+  width: 132px;
+  height: 132px;
   margin: 0 auto;
   place-items: center;
 }
@@ -373,8 +376,8 @@ h2 {
 .progress-ring {
   position: absolute;
   inset: 0;
-  width: 142px;
-  height: 142px;
+  width: 132px;
+  height: 132px;
   transform: rotate(-90deg);
 }
 
@@ -382,11 +385,11 @@ h2 {
 .progress-value {
   fill: none;
   stroke-linecap: round;
-  stroke-width: 7;
+  stroke-width: 6;
 }
 
 .progress-track {
-  stroke: rgba(26, 38, 64, 0.08);
+  stroke: var(--line-soft);
 }
 
 .progress-value {
@@ -409,7 +412,7 @@ h2 {
   display: block;
   color: var(--subtle);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -419,8 +422,8 @@ h2 {
   max-width: 104px;
   overflow: hidden;
   color: var(--text);
-  font-size: 30px;
-  font-weight: 650;
+  font-size: 28px;
+  font-weight: 500;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
@@ -442,22 +445,32 @@ h2 {
 .stats-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px 8px;
+  gap: 0;
   margin: 0;
-  padding: 10px;
-  border-radius: 16px;
-  background: rgba(245, 247, 251, 0.72);
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
 }
 
 .stats-list div {
   min-width: 0;
+  padding: 8px;
+}
+
+.stats-list div:nth-child(odd) {
+  border-right: 1px solid var(--line-soft);
+}
+
+.stats-list div:nth-child(n + 3) {
+  border-top: 1px solid var(--line-soft);
 }
 
 .stats-list dt {
   margin: 0 0 3px;
   color: var(--subtle);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.2;
 }
 
@@ -466,7 +479,7 @@ h2 {
   overflow: hidden;
   color: var(--text);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -478,7 +491,7 @@ h2 {
   overflow: hidden;
   color: var(--subtle);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -507,7 +520,7 @@ h2 {
 
 .history-list {
   display: grid;
-  gap: 5px;
+  gap: 0;
   max-height: 76px;
   margin: 0;
   padding: 0;
@@ -519,9 +532,16 @@ h2 {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line-soft);
   color: var(--muted);
   font-size: 11px;
   line-height: 1.3;
+}
+
+.history-list li:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .history-list span {
@@ -539,7 +559,7 @@ h2 {
 
 .active-tabs-list {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -550,11 +570,11 @@ h2 {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 46px;
+  min-height: 44px;
   padding: 8px;
-  border: 1px solid rgba(26, 38, 64, 0.08);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
 }
 
 .active-tab-main {
@@ -572,7 +592,7 @@ h2 {
 .active-tab-main strong {
   color: var(--text);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.3;
 }
 
@@ -593,57 +613,55 @@ h2 {
 .active-tab-current {
   padding: 4px 6px;
   border-radius: 999px;
-  background: rgba(26, 115, 232, 0.1);
-  color: var(--blue-deep);
+  background: var(--blue-bg);
+  color: var(--blue);
   font-size: 9px;
-  font-weight: 750;
+  font-weight: 500;
   line-height: 1;
 }
 
 .active-tab-action {
   min-height: 25px;
   border: 1px solid var(--line);
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.74);
+  border-radius: 6px;
+  background: var(--surface);
   color: var(--muted);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .active-tab-action:hover {
+  background: var(--surface-hover);
   color: var(--text);
-  border-color: rgba(26, 115, 232, 0.2);
+  border-color: var(--subtle);
 }
 
 .primary-button {
-  min-height: 44px;
+  min-height: 40px;
   border: 0;
-  border-radius: 22px;
-  background: linear-gradient(135deg, var(--blue-soft), var(--blue) 48%, var(--blue-deep));
+  border-radius: 20px;
+  background: var(--blue);
   color: #ffffff;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(26, 115, 232, 0.26);
-  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+  transition: background 120ms ease, box-shadow 120ms ease;
 }
 
 .primary-button:hover {
-  filter: saturate(1.05);
-  box-shadow: 0 14px 28px rgba(26, 115, 232, 0.3);
-  transform: translateY(-1px);
+  background: var(--blue-hover);
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3);
 }
 
 .primary-button:active {
-  box-shadow: 0 8px 16px rgba(26, 115, 232, 0.22);
-  transform: translateY(0);
+  box-shadow: none;
 }
 
 .primary-button[disabled],
 .secondary-button[disabled] {
   cursor: default;
-  opacity: 0.68;
+  opacity: 0.62;
 }
 
 .secondary-actions {
@@ -657,19 +675,18 @@ h2 {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 17px;
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--muted);
+  background: var(--surface);
+  color: var(--blue);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .secondary-button:hover {
-  border-color: rgba(26, 115, 232, 0.2);
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--text);
-  transform: translateY(-1px);
+  border-color: var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
 }
 
 .secondary-button.is-danger {
@@ -678,6 +695,7 @@ h2 {
 
 .secondary-button.is-danger:hover,
 .secondary-button.is-danger:focus-visible {
-  border-color: rgba(217, 48, 37, 0.26);
+  border-color: rgba(217, 48, 37, 0.35);
+  background: #fce8e6;
   color: var(--red);
 }

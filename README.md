@@ -17,7 +17,7 @@ typing without a click does not restart the timer.
 - Optional active-tab-only mode skips refresh while the tab is inactive.
 - Typing protection postpones refresh while editable fields or dirty forms are detected.
 - Provides `Pause`, `Resume`, `Reset timer`, `Refresh now`, and `Stop`.
-- Shows live countdown with a premium progress ring, next refresh time, refresh history, and session stats.
+- Shows live countdown with a Material-style progress ring, next refresh time, refresh history, and session stats.
 - Saves site profiles for domains you reuse often.
 - Blocks refresh on domains marked as `Never run`.
 - Shows an `Active tabs` overview with quick open/stop controls.
@@ -106,11 +106,11 @@ The toolbar badge shows a compact countdown while refresh is active:
 
 ## Popup UI
 
-The popup uses a premium compact surface inspired by the extension icon: soft
-background, rounded status card, gradient primary action, calm secondary
-actions, and an SVG progress ring around the countdown. The ring follows the
-current refresh status: blue for active, gray for paused, orange for skipped or
-postponed, and red for errors.
+The popup uses a modern Google/Chrome-style Material surface: clean white
+panels, neutral dividers, compact controls, a flat blue primary action, and an
+SVG progress ring around the countdown. The ring follows the current refresh
+status: blue for active, gray for paused, orange for skipped or postponed, and
+red for errors.
 
 ## Limitations
 

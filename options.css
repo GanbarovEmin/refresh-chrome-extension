@@ -1,14 +1,17 @@
 :root {
   color-scheme: light;
-  --bg: #f5f7fb;
-  --surface: rgba(255, 255, 255, 0.9);
-  --text: #18202c;
-  --muted: #5e6673;
-  --subtle: #8a93a3;
-  --line: rgba(26, 38, 64, 0.12);
+  --bg: #f8fafd;
+  --surface: #ffffff;
+  --surface-hover: #f8fafd;
+  --text: #202124;
+  --muted: #5f6368;
+  --subtle: #80868b;
+  --line: #dadce0;
+  --line-soft: #e8eaed;
   --blue: #1a73e8;
-  --blue-deep: #0b57d0;
+  --blue-bg: #e8f0fe;
   --red: #d93025;
+  --red-bg: #fce8e6;
 }
 
 * {
@@ -18,9 +21,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(90, 167, 255, 0.18), transparent 34%),
-    linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+  background: var(--bg);
   color: var(--text);
   font-family: "Google Sans", Roboto, Arial, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -32,7 +33,7 @@ button {
 
 .options-shell {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   width: min(860px, calc(100% - 32px));
   margin: 0 auto;
   padding: 32px 0;
@@ -41,10 +42,9 @@ button {
 .options-header,
 .info-card,
 .rules-card {
-  border: 1px solid var(--line);
-  border-radius: 24px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
   background: var(--surface);
-  box-shadow: 0 16px 38px rgba(31, 43, 68, 0.08);
 }
 
 .options-header {
@@ -56,8 +56,7 @@ button {
 }
 
 .options-header img {
-  border-radius: 14px;
-  box-shadow: 0 10px 22px rgba(26, 115, 232, 0.18);
+  border-radius: 8px;
 }
 
 h1,
@@ -68,7 +67,7 @@ p {
 
 h1 {
   font-size: 24px;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.2;
 }
 
@@ -94,7 +93,7 @@ h1 {
 h2 {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -111,23 +110,29 @@ h2 {
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 17px;
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--muted);
+  background: var(--surface);
+  color: var(--blue);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
   cursor: pointer;
   padding: 0 14px;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 #reload-rules:hover,
 .rule-action:hover {
-  color: var(--text);
-  border-color: rgba(26, 115, 232, 0.22);
+  background: var(--blue-bg);
+  border-color: var(--blue);
+}
+
+.rule-action.is-danger {
+  color: var(--muted);
 }
 
 .rule-action.is-danger:hover {
+  background: var(--red-bg);
   color: var(--red);
-  border-color: rgba(217, 48, 37, 0.28);
+  border-color: rgba(217, 48, 37, 0.35);
 }
 
 .rules-list {
@@ -141,9 +146,13 @@ h2 {
   align-items: center;
   gap: 16px;
   padding: 14px;
-  border: 1px solid rgba(26, 38, 64, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.rule-item:hover {
+  background: var(--surface-hover);
 }
 
 .rule-title {
@@ -157,7 +166,7 @@ h2 {
   overflow: hidden;
   color: var(--text);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -166,15 +175,15 @@ h2 {
   flex: 0 0 auto;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(26, 115, 232, 0.1);
-  color: var(--blue-deep);
+  background: var(--blue-bg);
+  color: var(--blue);
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 500;
   line-height: 1;
 }
 
 .rule-badge.is-blocked {
-  background: rgba(217, 48, 37, 0.1);
+  background: var(--red-bg);
   color: var(--red);
 }
 
@@ -192,13 +201,13 @@ h2 {
 .empty-state {
   padding: 18px;
   border: 1px dashed var(--line);
-  border-radius: 18px;
+  border-radius: 8px;
   color: var(--subtle);
   text-align: center;
 }
 
 button:focus-visible {
-  outline: 3px solid rgba(26, 115, 232, 0.22);
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 
