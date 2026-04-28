@@ -1,6 +1,5 @@
 const SESSION_KEY = "refresh.sessions.v1";
 const ALARM_PREFIX = "refresh-tab:";
-const ACTIVITY_IDLE_DELAY_MS = 1500;
 const BADGE_TICK_MS = 1000;
 const MIN_INTERVAL_SECONDS = 60;
 const MAX_INTERVAL_SECONDS = 999 * 60;
@@ -144,8 +143,8 @@ async function resetSessionAfterActivity(tabId, activityAt) {
 
   const now = Number(activityAt) || Date.now();
   session.lastActivityAt = now;
-  session.lastResetReason = "activity";
-  session.dueAt = now + ACTIVITY_IDLE_DELAY_MS + secondsToMs(session.intervalSeconds);
+  session.lastResetReason = "click";
+  session.dueAt = now + secondsToMs(session.intervalSeconds);
 
   sessions[key] = session;
   await writeSessions(sessions);

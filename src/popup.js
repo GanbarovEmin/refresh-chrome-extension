@@ -1,6 +1,7 @@
 const stateLabel = document.querySelector("#tab-state");
 const countdown = document.querySelector("#countdown");
 const statusMessage = document.querySelector("#status-message");
+const resetMessage = document.querySelector("#reset-message");
 const toggleButton = document.querySelector("#toggle-refresh");
 const intervalInputs = [...document.querySelectorAll("input[name='interval']")];
 const customField = document.querySelector("#custom-field");
@@ -165,6 +166,7 @@ function renderState(session) {
     countdown.textContent = "Blocked";
     statusMessage.textContent = session.error;
     statusMessage.classList.add("is-error");
+    resetMessage.textContent = "Last reset: not available";
     toggleButton.textContent = "Start refresh";
     toggleButton.classList.remove("is-stop");
     return;
@@ -175,6 +177,7 @@ function renderState(session) {
     stateLabel.textContent = "Inactive";
     countdown.textContent = "Not scheduled";
     statusMessage.textContent = "Choose an interval and start refresh for this tab.";
+    resetMessage.textContent = "Last reset: not started";
     toggleButton.textContent = "Start refresh";
     toggleButton.classList.remove("is-stop");
     return;
@@ -183,20 +186,21 @@ function renderState(session) {
   setControlsDisabled(true);
 
   const remainingMs = Math.max(0, session.dueAt - Date.now());
-  const recentlyActive = session.lastActivityAt && Date.now() - session.lastActivityAt < 3500;
+  const recentlyClicked = session.lastResetReason === "click" && session.lastActivityAt && Date.now() - session.lastActivityAt < 3500;
   const intervalLabel = formatIntervalLabel(session.intervalSeconds);
 
-  if (recentlyActive) {
+  if (recentlyClicked) {
     stateLabel.textContent = "Waiting";
     stateLabel.classList.add("is-waiting");
-    statusMessage.textContent = `Interaction detected. Timer restarted for ${intervalLabel}.`;
+    statusMessage.textContent = `Click detected. Timer restarted for ${intervalLabel}.`;
   } else {
     stateLabel.textContent = "Active";
     stateLabel.classList.add("is-active");
-    statusMessage.textContent = `Running every ${intervalLabel}. Page activity resets the timer.`;
+    statusMessage.textContent = `Running every ${intervalLabel}. Click inside the page resets the timer.`;
   }
 
   countdown.textContent = formatRemainingTime(remainingMs);
+  resetMessage.textContent = formatLastResetReason(session.lastResetReason);
   toggleButton.textContent = "Stop refresh";
   toggleButton.classList.add("is-stop");
 }
@@ -209,6 +213,7 @@ function renderValidationError(message) {
   countdown.textContent = "Not scheduled";
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
+  resetMessage.textContent = "Last reset: not started";
   customMinutesInput.setAttribute("aria-invalid", "true");
   toggleButton.textContent = "Start refresh";
   toggleButton.classList.remove("is-stop");
@@ -284,6 +289,22 @@ function formatIntervalLabel(intervalSeconds) {
   return `${trimNumber(minutes)} min`;
 }
 
+function formatLastResetReason(reason) {
+  if (reason === "click") {
+    return "Last reset: click";
+  }
+
+  if (reason === "refresh") {
+    return "Last reset: refresh";
+  }
+
+  if (reason === "start") {
+    return "Last reset: start";
+  }
+
+  return "Last reset: not started";
+}
+
 function trimNumber(value) {
   return Number(value.toFixed(2)).toString();
 }
@@ -354,6 +375,7 @@ function renderError(message) {
   countdown.textContent = "Blocked";
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
+  resetMessage.textContent = "Last reset: not available";
   toggleButton.textContent = "Start refresh";
   toggleButton.classList.remove("is-stop");
 }

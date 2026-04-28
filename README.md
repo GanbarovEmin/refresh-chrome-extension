@@ -4,16 +4,16 @@ Refresh is a small Chrome extension for controlled auto-refresh on the current t
 Choose a preset or custom interval, start it from the popup, and the extension
 will reload only that tab.
 
-The timer is activity-aware: clicks, typing, scrolling, pointer movement, input,
-focus, and touch activity reset the countdown so the page does not refresh while
-you are actively working.
+The timer is click-aware: only a real click inside the page resets the countdown.
+Opening the tab, switching focus, moving the mouse, scrolling, or typing without
+a click does not restart the timer.
 
 ## Features
 
 - Refreshes only the tab where the extension was started.
 - Supports fixed intervals: `1 min`, `5 min`, and `10 min`.
 - Supports a custom exact interval from `1` to `999` minutes.
-- Resets the timer after page interaction.
+- Resets the timer only after a click inside the page.
 - Shows live status and countdown in the popup.
 - Shows a short countdown badge on the extension icon.
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
@@ -35,6 +35,9 @@ you are actively working.
 
 Click `Stop refresh` to disable auto-refresh for the current tab.
 
+The toolbar badge shows a compact countdown while refresh is active. The popup
+also shows the last reset reason: `start`, `click`, or `refresh`.
+
 ## Limitations
 
 Chrome blocks extension scripts on browser system pages such as `chrome://`,
@@ -48,7 +51,7 @@ manifest.json       Chrome extension manifest
 popup.html          Extension popup markup
 popup.css           Popup styling
 src/background.js   Per-tab timer, alarms, reload flow
-src/content.js      Page activity detection
+src/content.js      Page click detection
 src/popup.js        Popup state and controls
 assets/             SVG and PNG extension icons
 ```

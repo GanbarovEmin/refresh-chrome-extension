@@ -1,6 +1,6 @@
 (() => {
   const INSTALL_FLAG = "__refresh_extension_content_installed__";
-  const ACTIVITY_THROTTLE_MS = 1000;
+  const CLICK_THROTTLE_MS = 1000;
 
   if (window[INSTALL_FLAG]) {
     sendRuntimeMessage({ type: "REFRESH_CONTENT_READY", at: Date.now() });
@@ -9,7 +9,7 @@
 
   window[INSTALL_FLAG] = true;
 
-  let lastActivitySentAt = 0;
+  let lastClickSentAt = 0;
 
   function sendRuntimeMessage(payload) {
     try {
@@ -23,14 +23,14 @@
     }
   }
 
-  function reportActivity(event) {
+  function reportClick(event) {
     const now = Date.now();
 
-    if (now - lastActivitySentAt < ACTIVITY_THROTTLE_MS) {
+    if (now - lastClickSentAt < CLICK_THROTTLE_MS) {
       return;
     }
 
-    lastActivitySentAt = now;
+    lastClickSentAt = now;
     sendRuntimeMessage({
       type: "REFRESH_USER_ACTIVITY",
       eventType: event.type,
@@ -39,19 +39,14 @@
   }
 
   const listenerOptions = { capture: true, passive: true };
-  const activityEvents = [
+  const clickEvents = [
     "pointerdown",
-    "pointermove",
-    "keydown",
-    "scroll",
-    "wheel",
-    "input",
-    "focus",
-    "touchstart"
+    "mousedown",
+    "click"
   ];
 
-  for (const eventName of activityEvents) {
-    window.addEventListener(eventName, reportActivity, listenerOptions);
+  for (const eventName of clickEvents) {
+    window.addEventListener(eventName, reportClick, listenerOptions);
   }
 
   sendRuntimeMessage({ type: "REFRESH_CONTENT_READY", at: Date.now() });
