@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Refresh</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup-shell" aria-live="polite">
+      <header class="brand">
+        <img class="brand-icon" src="assets/icon.svg" alt="" width="36" height="36">
+        <div>
+          <h1>Refresh</h1>
+          <p>Auto-refresh this tab</p>
+        </div>
+      </header>
+
+      <section class="control-group" aria-labelledby="interval-title">
+        <div class="section-row">
+          <h2 id="interval-title">Interval</h2>
+          <span id="tab-state" class="state-label">Inactive</span>
+        </div>
+
+        <div class="interval-options" role="radiogroup" aria-label="Refresh interval">
+          <label class="interval-option">
+            <input type="radio" name="interval" value="1" checked>
+            <span>1 min</span>
+          </label>
+          <label class="interval-option">
+            <input type="radio" name="interval" value="5">
+            <span>5 min</span>
+          </label>
+          <label class="interval-option">
+            <input type="radio" name="interval" value="10">
+            <span>10 min</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="status-panel" aria-label="Refresh status">
+        <div>
+          <span class="status-kicker">Next refresh</span>
+          <strong id="countdown">Not scheduled</strong>
+        </div>
+        <p id="status-message">Choose an interval and start refresh for this tab.</p>
+      </section>
+
+      <button id="toggle-refresh" class="primary-button" type="button">
+        Start refresh
+      </button>
+    </main>
+
+    <script src="src/popup.js"></script>
+  </body>
+</html>
