@@ -66,6 +66,22 @@ async function handleMessage(message, sender) {
     return { ok: true };
   }
 
+  if (message.type === "REFRESH_PAUSE") {
+    return pauseSession(message.tabId);
+  }
+
+  if (message.type === "REFRESH_RESUME") {
+    return resumeSession(message.tabId);
+  }
+
+  if (message.type === "REFRESH_RESET_TIMER") {
+    return resetSessionTimer(message.tabId);
+  }
+
+  if (message.type === "REFRESH_REFRESH_NOW") {
+    return refreshSessionNow(message.tabId);
+  }
+
   if (message.type === "REFRESH_USER_ACTIVITY") {
     const tabId = sender.tab && sender.tab.id;
     await resetSessionAfterActivity(tabId, message.at);
@@ -99,7 +115,12 @@ async function startSession(tabId, intervalSeconds, legacyIntervalMinutes) {
     startedAt: now,
     lastActivityAt: null,
     lastRefreshAt: null,
+    lastManualRefreshAt: null,
     lastResetReason: "start",
+    paused: false,
+    pausedRemainingMs: null,
+    pauseStartedAt: null,
+    refreshCount: 0,
     url: tab.url || "",
     title: tab.title || ""
   };
@@ -137,7 +158,7 @@ async function resetSessionAfterActivity(tabId, activityAt) {
   const key = String(tabId);
   const session = sessions[key];
 
-  if (!session || !session.enabled) {
+  if (!session || !session.enabled || session.paused) {
     return;
   }
 
@@ -153,6 +174,118 @@ async function resetSessionAfterActivity(tabId, activityAt) {
   ensureBadgeTicker();
 }
 
+async function pauseSession(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const sessions = await readSessions();
+  const key = String(normalizedTabId);
+  const session = getEnabledSession(sessions, key);
+  const now = Date.now();
+
+  if (session.paused) {
+    await updateBadgeForSession(session);
+    return { ok: true, session };
+  }
+
+  session.paused = true;
+  session.pausedRemainingMs = Math.max(0, Number(session.dueAt) - now);
+  session.pauseStartedAt = now;
+  session.lastResetReason = "pause";
+
+  sessions[key] = session;
+  await writeSessions(sessions);
+  await clearAlarm(normalizedTabId);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
+
+  return { ok: true, session };
+}
+
+async function resumeSession(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const sessions = await readSessions();
+  const key = String(normalizedTabId);
+  const session = getEnabledSession(sessions, key);
+  const now = Date.now();
+  const remainingMs = Math.max(0, Number(session.pausedRemainingMs) || secondsToMs(session.intervalSeconds));
+
+  session.paused = false;
+  session.pausedRemainingMs = null;
+  session.pauseStartedAt = null;
+  session.lastResetReason = "resume";
+  session.dueAt = now + remainingMs;
+
+  sessions[key] = session;
+  await writeSessions(sessions);
+  await scheduleAlarm(session);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
+
+  return { ok: true, session };
+}
+
+async function resetSessionTimer(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const sessions = await readSessions();
+  const key = String(normalizedTabId);
+  const session = getEnabledSession(sessions, key);
+  const now = Date.now();
+  const fullIntervalMs = secondsToMs(session.intervalSeconds);
+
+  session.lastResetReason = "manual-reset";
+
+  if (session.paused) {
+    session.pausedRemainingMs = fullIntervalMs;
+    session.pauseStartedAt = now;
+    await clearAlarm(normalizedTabId);
+  } else {
+    session.dueAt = now + fullIntervalMs;
+    await scheduleAlarm(session);
+  }
+
+  sessions[key] = session;
+  await writeSessions(sessions);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
+
+  return { ok: true, session };
+}
+
+async function refreshSessionNow(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const sessions = await readSessions();
+  const key = String(normalizedTabId);
+  const session = getEnabledSession(sessions, key);
+  const tab = await chrome.tabs.get(normalizedTabId);
+  const unsupportedReason = getUnsupportedReason(tab.url);
+
+  if (unsupportedReason) {
+    await setTabError(normalizedTabId, unsupportedReason, tab.url);
+    return { ok: false, error: unsupportedReason };
+  }
+
+  await chrome.tabs.reload(normalizedTabId);
+
+  const now = Date.now();
+  session.lastRefreshAt = now;
+  session.lastManualRefreshAt = now;
+  session.lastResetReason = "manual-refresh";
+  session.refreshCount = Number(session.refreshCount || 0) + 1;
+  session.paused = false;
+  session.pausedRemainingMs = null;
+  session.pauseStartedAt = null;
+  session.dueAt = now + secondsToMs(session.intervalSeconds);
+  session.url = tab.url || session.url || "";
+  session.title = tab.title || session.title || "";
+
+  sessions[key] = session;
+  await writeSessions(sessions);
+  await scheduleAlarm(session);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
+
+  return { ok: true, session };
+}
+
 async function handleRefreshAlarm(tabId) {
   const sessions = await readSessions();
   const key = String(tabId);
@@ -162,6 +295,12 @@ async function handleRefreshAlarm(tabId) {
     await clearAlarm(tabId);
     await clearBadge(tabId);
     await stopBadgeTickerIfIdle();
+    return;
+  }
+
+  if (session.paused) {
+    await clearAlarm(tabId);
+    await updateBadgeForSession(session);
     return;
   }
 
@@ -184,6 +323,7 @@ async function handleRefreshAlarm(tabId) {
   const now = Date.now();
   session.lastRefreshAt = now;
   session.lastResetReason = "refresh";
+  session.refreshCount = Number(session.refreshCount || 0) + 1;
   session.dueAt = now + secondsToMs(session.intervalSeconds);
   session.url = tab.url || session.url || "";
   session.title = tab.title || session.title || "";
@@ -227,6 +367,12 @@ async function restoreAlarms() {
   await Promise.all(
     Object.values(sessions).map(async (session) => {
       if (!session || !session.enabled) {
+        return;
+      }
+
+      if (session.paused) {
+        await clearAlarm(session.tabId);
+        await updateBadgeForSession(session);
         return;
       }
 
@@ -278,6 +424,8 @@ async function setTabError(tabId, error, url = "") {
     enabled: false,
     intervalSeconds: null,
     dueAt: null,
+    paused: false,
+    pausedRemainingMs: null,
     error,
     errorAt: Date.now(),
     url
@@ -353,11 +501,11 @@ async function updateBadgeForSession(session) {
     return;
   }
 
-  const badgeText = formatBadgeText(session.dueAt);
+  const badgeText = session.paused ? "Paused" : formatBadgeText(session.dueAt);
 
   await chrome.action.setBadgeBackgroundColor({
     tabId: session.tabId,
-    color: "#1a73e8"
+    color: session.paused ? "#5f6368" : "#1a73e8"
   });
 
   if (chrome.action.setBadgeTextColor) {
@@ -421,11 +569,27 @@ function normalizeSession(session) {
   }
 
   const intervalSeconds = normalizeIntervalSeconds(session.intervalSeconds, session.intervalMinutes);
+  const paused = Boolean(session.paused);
 
   return {
     ...session,
-    intervalSeconds
+    intervalSeconds,
+    paused,
+    pausedRemainingMs: paused ? Math.max(0, Number(session.pausedRemainingMs) || 0) : null,
+    pauseStartedAt: paused && Number.isFinite(Number(session.pauseStartedAt)) ? Number(session.pauseStartedAt) : null,
+    lastManualRefreshAt: Number.isFinite(Number(session.lastManualRefreshAt)) ? Number(session.lastManualRefreshAt) : null,
+    refreshCount: Math.max(0, Math.round(Number(session.refreshCount) || 0))
   };
+}
+
+function getEnabledSession(sessions, key) {
+  const session = sessions[key];
+
+  if (!session || !session.enabled) {
+    throw new Error("Refresh is not running on this tab.");
+  }
+
+  return session;
 }
 
 function normalizeIntervalSeconds(intervalSeconds, legacyIntervalMinutes) {

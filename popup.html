@@ -56,12 +56,32 @@
           <strong id="countdown">Not scheduled</strong>
         </div>
         <p id="status-message">Choose an interval and start refresh for this tab.</p>
-        <p id="reset-message" class="reset-message">Last reset: not started</p>
+        <dl class="stats-list">
+          <div>
+            <dt>Last refresh</dt>
+            <dd id="last-refresh">Never</dd>
+          </div>
+          <div>
+            <dt>Refreshes</dt>
+            <dd id="refresh-count">0</dd>
+          </div>
+          <div>
+            <dt>Last reset</dt>
+            <dd id="reset-message">Not started</dd>
+          </div>
+        </dl>
       </section>
 
-      <button id="toggle-refresh" class="primary-button" type="button">
-        Start refresh
-      </button>
+      <section class="action-group" aria-label="Refresh controls">
+        <button id="toggle-refresh" class="primary-button" type="button">
+          Start refresh
+        </button>
+        <div class="secondary-actions">
+          <button id="reset-timer" class="secondary-button" type="button">Reset timer</button>
+          <button id="refresh-now" class="secondary-button" type="button">Refresh now</button>
+          <button id="stop-refresh" class="secondary-button is-danger" type="button">Stop</button>
+        </div>
+      </section>
     </main>
 
     <script src="src/popup.js"></script>

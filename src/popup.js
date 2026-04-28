@@ -3,6 +3,11 @@ const countdown = document.querySelector("#countdown");
 const statusMessage = document.querySelector("#status-message");
 const resetMessage = document.querySelector("#reset-message");
 const toggleButton = document.querySelector("#toggle-refresh");
+const resetButton = document.querySelector("#reset-timer");
+const refreshNowButton = document.querySelector("#refresh-now");
+const stopButton = document.querySelector("#stop-refresh");
+const lastRefreshValue = document.querySelector("#last-refresh");
+const refreshCountValue = document.querySelector("#refresh-count");
 const intervalInputs = [...document.querySelectorAll("input[name='interval']")];
 const customField = document.querySelector("#custom-field");
 const customMinutesInput = document.querySelector("#custom-minutes");
@@ -31,11 +36,31 @@ async function init() {
       return;
     }
 
-    if (currentSession && currentSession.enabled) {
-      await stopRefresh();
+    if (currentSession && currentSession.enabled && currentSession.paused) {
+      await resumeRefresh();
+    } else if (currentSession && currentSession.enabled) {
+      await pauseRefresh();
     } else {
       await startRefresh();
     }
+  });
+
+  resetButton.addEventListener("click", () => {
+    runSessionAction("REFRESH_RESET_TIMER").catch((error) => {
+      renderError(getErrorMessage(error));
+    });
+  });
+
+  refreshNowButton.addEventListener("click", () => {
+    runSessionAction("REFRESH_REFRESH_NOW").catch((error) => {
+      renderError(getErrorMessage(error));
+    });
+  });
+
+  stopButton.addEventListener("click", () => {
+    stopRefresh().catch((error) => {
+      renderError(getErrorMessage(error));
+    });
   });
 
   for (const input of intervalInputs) {
@@ -149,6 +174,39 @@ async function stopRefresh() {
   }
 }
 
+async function pauseRefresh() {
+  await runSessionAction("REFRESH_PAUSE");
+}
+
+async function resumeRefresh() {
+  await runSessionAction("REFRESH_RESUME");
+}
+
+async function runSessionAction(type) {
+  setBusy(true);
+
+  try {
+    const response = await sendMessage({
+      type,
+      tabId: activeTab.id
+    });
+
+    if (!response.ok) {
+      currentSession = {
+        enabled: false,
+        error: response.error
+      };
+      renderState(currentSession);
+      return;
+    }
+
+    currentSession = response.session;
+    renderState(currentSession);
+  } finally {
+    setBusy(false);
+  }
+}
+
 function renderState(session) {
   clearStatusClasses();
   customMinutesInput.setAttribute("aria-invalid", "false");
@@ -166,9 +224,11 @@ function renderState(session) {
     countdown.textContent = "Blocked";
     statusMessage.textContent = session.error;
     statusMessage.classList.add("is-error");
-    resetMessage.textContent = "Last reset: not available";
+    resetMessage.textContent = "Not available";
+    lastRefreshValue.textContent = "Never";
+    refreshCountValue.textContent = "0";
+    setSessionActionsDisabled(true);
     toggleButton.textContent = "Start refresh";
-    toggleButton.classList.remove("is-stop");
     return;
   }
 
@@ -177,32 +237,42 @@ function renderState(session) {
     stateLabel.textContent = "Inactive";
     countdown.textContent = "Not scheduled";
     statusMessage.textContent = "Choose an interval and start refresh for this tab.";
-    resetMessage.textContent = "Last reset: not started";
+    resetMessage.textContent = "Not started";
+    lastRefreshValue.textContent = "Never";
+    refreshCountValue.textContent = "0";
+    setSessionActionsDisabled(true);
     toggleButton.textContent = "Start refresh";
-    toggleButton.classList.remove("is-stop");
     return;
   }
 
   setControlsDisabled(true);
+  setSessionActionsDisabled(false);
 
-  const remainingMs = Math.max(0, session.dueAt - Date.now());
+  const remainingMs = getSessionRemainingMs(session);
   const recentlyClicked = session.lastResetReason === "click" && session.lastActivityAt && Date.now() - session.lastActivityAt < 3500;
   const intervalLabel = formatIntervalLabel(session.intervalSeconds);
 
-  if (recentlyClicked) {
+  if (session.paused) {
+    stateLabel.textContent = "Paused";
+    stateLabel.classList.add("is-paused");
+    statusMessage.textContent = `Paused with ${formatRemainingTime(remainingMs)} remaining. Resume keeps the saved countdown.`;
+    toggleButton.textContent = "Resume";
+  } else if (recentlyClicked) {
     stateLabel.textContent = "Waiting";
     stateLabel.classList.add("is-waiting");
     statusMessage.textContent = `Click detected. Timer restarted for ${intervalLabel}.`;
+    toggleButton.textContent = "Pause";
   } else {
     stateLabel.textContent = "Active";
     stateLabel.classList.add("is-active");
     statusMessage.textContent = `Running every ${intervalLabel}. Click inside the page resets the timer.`;
+    toggleButton.textContent = "Pause";
   }
 
   countdown.textContent = formatRemainingTime(remainingMs);
   resetMessage.textContent = formatLastResetReason(session.lastResetReason);
-  toggleButton.textContent = "Stop refresh";
-  toggleButton.classList.add("is-stop");
+  lastRefreshValue.textContent = formatTimestamp(session.lastRefreshAt);
+  refreshCountValue.textContent = String(Number(session.refreshCount || 0));
 }
 
 function renderValidationError(message) {
@@ -213,14 +283,16 @@ function renderValidationError(message) {
   countdown.textContent = "Not scheduled";
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
-  resetMessage.textContent = "Last reset: not started";
+  resetMessage.textContent = "Not started";
+  lastRefreshValue.textContent = "Never";
+  refreshCountValue.textContent = "0";
+  setSessionActionsDisabled(true);
   customMinutesInput.setAttribute("aria-invalid", "true");
   toggleButton.textContent = "Start refresh";
-  toggleButton.classList.remove("is-stop");
 }
 
 function clearStatusClasses() {
-  stateLabel.classList.remove("is-active", "is-waiting", "is-error");
+  stateLabel.classList.remove("is-active", "is-waiting", "is-paused", "is-error");
   statusMessage.classList.remove("is-error");
 }
 
@@ -265,6 +337,12 @@ function setControlsDisabled(disabled) {
   customMinutesInput.disabled = disabled;
 }
 
+function setSessionActionsDisabled(disabled) {
+  resetButton.disabled = disabled;
+  refreshNowButton.disabled = disabled;
+  stopButton.disabled = disabled;
+}
+
 function updateCustomVisibility() {
   const selected = intervalInputs.find((input) => input.checked);
   const isCustom = selected && selected.value === "custom";
@@ -279,6 +357,14 @@ function formatRemainingTime(ms) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function getSessionRemainingMs(session) {
+  if (session.paused) {
+    return Math.max(0, Number(session.pausedRemainingMs) || 0);
+  }
+
+  return Math.max(0, Number(session.dueAt) - Date.now());
+}
+
 function formatIntervalLabel(intervalSeconds) {
   const minutes = intervalSeconds / 60;
 
@@ -291,18 +377,48 @@ function formatIntervalLabel(intervalSeconds) {
 
 function formatLastResetReason(reason) {
   if (reason === "click") {
-    return "Last reset: click";
+    return "Click";
   }
 
   if (reason === "refresh") {
-    return "Last reset: refresh";
+    return "Auto refresh";
   }
 
   if (reason === "start") {
-    return "Last reset: start";
+    return "Start";
   }
 
-  return "Last reset: not started";
+  if (reason === "pause") {
+    return "Pause";
+  }
+
+  if (reason === "resume") {
+    return "Resume";
+  }
+
+  if (reason === "manual-reset") {
+    return "Reset timer";
+  }
+
+  if (reason === "manual-refresh") {
+    return "Refresh now";
+  }
+
+  return "Not started";
+}
+
+function formatTimestamp(timestamp) {
+  const value = Number(timestamp);
+
+  if (!Number.isFinite(value) || value <= 0) {
+    return "Never";
+  }
+
+  return new Date(value).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
 }
 
 function trimNumber(value) {
@@ -364,6 +480,9 @@ async function savePreferredSelection() {
 function setBusy(nextBusy) {
   isBusy = nextBusy;
   toggleButton.disabled = nextBusy;
+  resetButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
+  refreshNowButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
+  stopButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
 }
 
 function renderError(message) {
@@ -375,9 +494,11 @@ function renderError(message) {
   countdown.textContent = "Blocked";
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
-  resetMessage.textContent = "Last reset: not available";
+  resetMessage.textContent = "Not available";
+  lastRefreshValue.textContent = "Never";
+  refreshCountValue.textContent = "0";
+  setSessionActionsDisabled(true);
   toggleButton.textContent = "Start refresh";
-  toggleButton.classList.remove("is-stop");
 }
 
 function getErrorMessage(error) {
