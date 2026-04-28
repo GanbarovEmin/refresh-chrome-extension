@@ -1,4 +1,6 @@
 const stateLabel = document.querySelector("#tab-state");
+const statusPanel = document.querySelector("#status-panel");
+const progressRingValue = document.querySelector("#progress-ring-value");
 const countdown = document.querySelector("#countdown");
 const statusMessage = document.querySelector("#status-message");
 const resetMessage = document.querySelector("#reset-message");
@@ -262,6 +264,8 @@ function renderState(session) {
 
   if (session && session.error) {
     setControlsDisabled(false);
+    setStatusVisualState("error");
+    renderProgressRing(0);
     stateLabel.textContent = "Error";
     stateLabel.classList.add("is-error");
     countdown.textContent = "Blocked";
@@ -279,6 +283,8 @@ function renderState(session) {
 
   if (!session || !session.enabled) {
     setControlsDisabled(false);
+    setStatusVisualState("inactive");
+    renderProgressRing(0);
     stateLabel.textContent = "Inactive";
     countdown.textContent = "Not scheduled";
     statusMessage.textContent = "Choose an interval and start refresh for this tab.";
@@ -297,30 +303,36 @@ function renderState(session) {
   setSessionActionsDisabled(false);
 
   const remainingMs = getSessionRemainingMs(session);
+  const progressRatio = getProgressRatio(session, remainingMs);
   const recentlyClicked = session.lastResetReason === "click" && session.lastActivityAt && Date.now() - session.lastActivityAt < 3500;
   const intervalLabel = formatIntervalLabel(session.intervalSeconds);
 
   if (session.paused) {
+    setStatusVisualState("paused");
     stateLabel.textContent = "Paused";
     stateLabel.classList.add("is-paused");
     statusMessage.textContent = `Paused with ${formatRemainingTime(remainingMs)} remaining. Resume keeps the saved countdown.`;
     toggleButton.textContent = "Resume";
   } else if (session.skipReason === "inactive") {
+    setStatusVisualState("skipped");
     stateLabel.textContent = "Skipped";
     stateLabel.classList.add("is-skipped");
     statusMessage.textContent = "Skipped because tab is inactive.";
     toggleButton.textContent = "Pause";
   } else if (session.skipReason === "typing") {
+    setStatusVisualState("postponed");
     stateLabel.textContent = "Waiting";
     stateLabel.classList.add("is-postponed");
     statusMessage.textContent = "Typing detected. Refresh postponed.";
     toggleButton.textContent = "Pause";
   } else if (recentlyClicked) {
+    setStatusVisualState("waiting");
     stateLabel.textContent = "Waiting";
     stateLabel.classList.add("is-waiting");
     statusMessage.textContent = `Click detected. Timer restarted for ${intervalLabel}.`;
     toggleButton.textContent = "Pause";
   } else {
+    setStatusVisualState("active");
     stateLabel.textContent = "Active";
     stateLabel.classList.add("is-active");
     statusMessage.textContent = session.smartMode
@@ -330,6 +342,7 @@ function renderState(session) {
   }
 
   countdown.textContent = formatRemainingTime(remainingMs);
+  renderProgressRing(progressRatio);
   resetMessage.textContent = formatLastResetReason(session.lastResetReason);
   nextRefreshAtValue.textContent = session.paused ? "Paused" : formatTimestamp(session.nextRefreshAt || session.dueAt, "Not scheduled");
   lastRefreshValue.textContent = formatTimestamp(session.lastRefreshAt);
@@ -340,6 +353,8 @@ function renderState(session) {
 function renderValidationError(message) {
   clearStatusClasses();
   setControlsDisabled(false);
+  setStatusVisualState("error");
+  renderProgressRing(0);
   stateLabel.textContent = "Error";
   stateLabel.classList.add("is-error");
   countdown.textContent = "Not scheduled";
@@ -407,6 +422,19 @@ function setSessionActionsDisabled(disabled) {
   stopButton.disabled = disabled;
 }
 
+function setStatusVisualState(state) {
+  statusPanel.classList.remove("is-active", "is-paused", "is-skipped", "is-postponed", "is-waiting", "is-error");
+
+  if (state && state !== "inactive") {
+    statusPanel.classList.add(`is-${state}`);
+  }
+}
+
+function renderProgressRing(ratio) {
+  const progress = clamp(Number(ratio) || 0, 0, 1);
+  progressRingValue.style.strokeDashoffset = String(100 - progress * 100);
+}
+
 function setSafetyControlsDisabled(disabled) {
   smartModeInput.disabled = disabled;
   activeTabModeInput.disabled = disabled;
@@ -447,6 +475,16 @@ function getSessionRemainingMs(session) {
   }
 
   return Math.max(0, Number(session.dueAt) - Date.now());
+}
+
+function getProgressRatio(session, remainingMs) {
+  const intervalMs = Number(session.intervalSeconds) * 1000;
+
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+    return 0;
+  }
+
+  return remainingMs / intervalMs;
 }
 
 function formatIntervalLabel(intervalSeconds) {
@@ -533,6 +571,10 @@ function trimNumber(value) {
   return Number(value.toFixed(2)).toString();
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function sendMessage(message) {
   return chrome.runtime.sendMessage(message);
 }
@@ -616,6 +658,8 @@ function renderError(message) {
   clearStatusClasses();
   currentSession = null;
   setControlsDisabled(false);
+  setStatusVisualState("error");
+  renderProgressRing(0);
   stateLabel.textContent = "Error";
   stateLabel.classList.add("is-error");
   countdown.textContent = "Blocked";

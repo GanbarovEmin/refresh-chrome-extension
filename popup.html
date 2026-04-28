@@ -17,6 +17,38 @@
         <span id="tab-state" class="state-label">Inactive</span>
       </header>
 
+      <section id="status-panel" class="status-card" aria-label="Refresh status">
+        <div class="countdown-ring" aria-hidden="true">
+          <svg class="progress-ring" viewBox="0 0 120 120" focusable="false">
+            <circle class="progress-track" cx="60" cy="60" r="52" pathLength="100"></circle>
+            <circle id="progress-ring-value" class="progress-value" cx="60" cy="60" r="52" pathLength="100"></circle>
+          </svg>
+          <div class="countdown-core">
+            <span class="status-kicker">Next refresh</span>
+            <strong id="countdown">Not scheduled</strong>
+          </div>
+        </div>
+        <p id="status-message">Choose an interval and start refresh for this tab.</p>
+        <dl class="stats-list">
+          <div>
+            <dt>Next at</dt>
+            <dd id="next-refresh-at">Not scheduled</dd>
+          </div>
+          <div>
+            <dt>Last refresh</dt>
+            <dd id="last-refresh">Never</dd>
+          </div>
+          <div>
+            <dt>Refreshes</dt>
+            <dd id="refresh-count">0</dd>
+          </div>
+          <div>
+            <dt>Last reset</dt>
+            <dd id="reset-message">Not started</dd>
+          </div>
+        </dl>
+      </section>
+
       <section class="control-group" aria-labelledby="interval-title">
         <div class="section-row">
           <h2 id="interval-title">Interval</h2>
@@ -78,32 +110,6 @@
           </span>
           <input id="typing-protection" type="checkbox" checked>
         </label>
-      </section>
-
-      <section class="status-panel" aria-label="Refresh status">
-        <div>
-          <span class="status-kicker">Next refresh</span>
-          <strong id="countdown">Not scheduled</strong>
-        </div>
-        <p id="status-message">Choose an interval and start refresh for this tab.</p>
-        <dl class="stats-list">
-          <div>
-            <dt>Next at</dt>
-            <dd id="next-refresh-at">Not scheduled</dd>
-          </div>
-          <div>
-            <dt>Last refresh</dt>
-            <dd id="last-refresh">Never</dd>
-          </div>
-          <div>
-            <dt>Refreshes</dt>
-            <dd id="refresh-count">0</dd>
-          </div>
-          <div>
-            <dt>Last reset</dt>
-            <dd id="reset-message">Not started</dd>
-          </div>
-        </dl>
       </section>
 
       <section class="history-panel" aria-labelledby="history-title">

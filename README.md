@@ -17,7 +17,7 @@ typing without a click does not restart the timer.
 - Optional active-tab-only mode skips refresh while the tab is inactive.
 - Typing protection postpones refresh while editable fields or dirty forms are detected.
 - Provides `Pause`, `Resume`, `Reset timer`, `Refresh now`, and `Stop`.
-- Shows live countdown, next refresh time, refresh history, and session stats.
+- Shows live countdown with a premium progress ring, next refresh time, refresh history, and session stats.
 - Shows a compact status badge on the extension icon.
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
 - Includes source SVG plus Chrome PNG icon sizes.
@@ -78,6 +78,14 @@ The toolbar badge shows a compact countdown while refresh is active:
 - Orange `SKIP`: skipped because the tab is inactive.
 - Orange `WAIT`: postponed because typing or unsaved input is detected.
 - Red `!`: blocked/error state.
+
+## Popup UI
+
+The popup uses a premium compact surface inspired by the extension icon: soft
+background, rounded status card, gradient primary action, calm secondary
+actions, and an SVG progress ring around the countdown. The ring follows the
+current refresh status: blue for active, gray for paused, orange for skipped or
+postponed, and red for errors.
 
 ## Limitations
 
