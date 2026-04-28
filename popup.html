@@ -9,33 +9,45 @@
   <body>
     <main class="popup-shell" aria-live="polite">
       <header class="brand">
-        <img class="brand-icon" src="assets/icon.svg" alt="" width="36" height="36">
+        <img class="brand-icon" src="assets/icon.svg" alt="" width="32" height="32">
         <div>
           <h1>Refresh</h1>
           <p>Auto-refresh this tab</p>
         </div>
+        <span id="tab-state" class="state-label">Inactive</span>
       </header>
 
       <section class="control-group" aria-labelledby="interval-title">
         <div class="section-row">
           <h2 id="interval-title">Interval</h2>
-          <span id="tab-state" class="state-label">Inactive</span>
         </div>
 
         <div class="interval-options" role="radiogroup" aria-label="Refresh interval">
           <label class="interval-option">
-            <input type="radio" name="interval" value="1" checked>
+            <input type="radio" name="interval" value="60" checked>
             <span>1 min</span>
           </label>
           <label class="interval-option">
-            <input type="radio" name="interval" value="5">
+            <input type="radio" name="interval" value="300">
             <span>5 min</span>
           </label>
           <label class="interval-option">
-            <input type="radio" name="interval" value="10">
+            <input type="radio" name="interval" value="600">
             <span>10 min</span>
           </label>
+          <label class="interval-option">
+            <input type="radio" name="interval" value="custom">
+            <span>Custom</span>
+          </label>
         </div>
+
+        <label id="custom-field" class="custom-field" for="custom-minutes">
+          <span>Custom time</span>
+          <div class="custom-input-row">
+            <input id="custom-minutes" type="number" min="1" max="999" step="0.5" inputmode="decimal" value="15">
+            <span>minutes</span>
+          </div>
+        </label>
       </section>
 
       <section class="status-panel" aria-label="Refresh status">

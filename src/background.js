@@ -1,7 +1,12 @@
 const SESSION_KEY = "refresh.sessions.v1";
 const ALARM_PREFIX = "refresh-tab:";
 const ACTIVITY_IDLE_DELAY_MS = 1500;
+const BADGE_TICK_MS = 1000;
+const MIN_INTERVAL_SECONDS = 60;
+const MAX_INTERVAL_SECONDS = 999 * 60;
 const SUPPORTED_PROTOCOLS = ["http:", "https:", "file:"];
+
+let badgeTimerId = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
@@ -54,7 +59,7 @@ async function handleMessage(message, sender) {
   }
 
   if (message.type === "REFRESH_START") {
-    return startSession(message.tabId, message.intervalMinutes);
+    return startSession(message.tabId, message.intervalSeconds, message.intervalMinutes);
   }
 
   if (message.type === "REFRESH_STOP") {
@@ -75,9 +80,9 @@ async function handleMessage(message, sender) {
   return { ok: false, error: "Unknown message." };
 }
 
-async function startSession(tabId, intervalMinutes) {
+async function startSession(tabId, intervalSeconds, legacyIntervalMinutes) {
   const normalizedTabId = normalizeTabId(tabId);
-  const normalizedInterval = normalizeInterval(intervalMinutes);
+  const normalizedIntervalSeconds = normalizeIntervalSeconds(intervalSeconds, legacyIntervalMinutes);
   const tab = await chrome.tabs.get(normalizedTabId);
   const unsupportedReason = getUnsupportedReason(tab.url);
 
@@ -89,9 +94,9 @@ async function startSession(tabId, intervalMinutes) {
   const now = Date.now();
   const session = {
     tabId: normalizedTabId,
-    intervalMinutes: normalizedInterval,
+    intervalSeconds: normalizedIntervalSeconds,
     enabled: true,
-    dueAt: now + minutesToMs(normalizedInterval),
+    dueAt: now + secondsToMs(normalizedIntervalSeconds),
     startedAt: now,
     lastActivityAt: null,
     lastRefreshAt: null,
@@ -110,6 +115,8 @@ async function startSession(tabId, intervalMinutes) {
 
   await saveSession(session);
   await scheduleAlarm(session);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
 
   return { ok: true, session };
 }
@@ -138,11 +145,13 @@ async function resetSessionAfterActivity(tabId, activityAt) {
   const now = Number(activityAt) || Date.now();
   session.lastActivityAt = now;
   session.lastResetReason = "activity";
-  session.dueAt = now + ACTIVITY_IDLE_DELAY_MS + minutesToMs(session.intervalMinutes);
+  session.dueAt = now + ACTIVITY_IDLE_DELAY_MS + secondsToMs(session.intervalSeconds);
 
   sessions[key] = session;
   await writeSessions(sessions);
   await scheduleAlarm(session);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
 }
 
 async function handleRefreshAlarm(tabId) {
@@ -152,11 +161,14 @@ async function handleRefreshAlarm(tabId) {
 
   if (!session || !session.enabled) {
     await clearAlarm(tabId);
+    await clearBadge(tabId);
+    await stopBadgeTickerIfIdle();
     return;
   }
 
   if (Date.now() + 500 < session.dueAt) {
     await scheduleAlarm(session);
+    await updateBadgeForSession(session);
     return;
   }
 
@@ -173,13 +185,15 @@ async function handleRefreshAlarm(tabId) {
   const now = Date.now();
   session.lastRefreshAt = now;
   session.lastResetReason = "refresh";
-  session.dueAt = now + minutesToMs(session.intervalMinutes);
+  session.dueAt = now + secondsToMs(session.intervalSeconds);
   session.url = tab.url || session.url || "";
   session.title = tab.title || session.title || "";
 
   sessions[key] = session;
   await writeSessions(sessions);
   await scheduleAlarm(session);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
 }
 
 async function restoreContentScript(tabId) {
@@ -203,6 +217,8 @@ async function restoreContentScript(tabId) {
   sessions[String(tabId)] = session;
   await writeSessions(sessions);
   await injectContentScript(tabId);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
 }
 
 async function restoreAlarms() {
@@ -216,13 +232,16 @@ async function restoreAlarms() {
       }
 
       if (session.dueAt <= now) {
-        session.dueAt = now + minutesToMs(session.intervalMinutes);
+        session.dueAt = now + secondsToMs(session.intervalSeconds);
         await saveSession(session);
       }
 
       await scheduleAlarm(session);
+      await updateBadgeForSession(session);
     })
   );
+
+  ensureBadgeTicker();
 }
 
 async function injectContentScript(tabId) {
@@ -247,6 +266,8 @@ async function removeSession(tabId) {
   delete sessions[String(normalizedTabId)];
   await writeSessions(sessions);
   await clearAlarm(normalizedTabId);
+  await clearBadge(normalizedTabId);
+  await stopBadgeTickerIfIdle();
 }
 
 async function setTabError(tabId, error, url = "") {
@@ -256,7 +277,7 @@ async function setTabError(tabId, error, url = "") {
   sessions[String(normalizedTabId)] = {
     tabId: normalizedTabId,
     enabled: false,
-    intervalMinutes: null,
+    intervalSeconds: null,
     dueAt: null,
     error,
     errorAt: Date.now(),
@@ -265,11 +286,13 @@ async function setTabError(tabId, error, url = "") {
 
   await writeSessions(sessions);
   await clearAlarm(normalizedTabId);
+  await clearBadge(normalizedTabId);
+  await stopBadgeTickerIfIdle();
 }
 
 async function saveSession(session) {
   const sessions = await readSessions();
-  sessions[String(session.tabId)] = session;
+  sessions[String(session.tabId)] = normalizeSession(session);
   await writeSessions(sessions);
 }
 
@@ -281,11 +304,98 @@ async function readSessions() {
     return {};
   }
 
-  return sessions;
+  return Object.fromEntries(
+    Object.entries(sessions).map(([key, session]) => [key, normalizeSession(session)])
+  );
 }
 
 async function writeSessions(sessions) {
   await chrome.storage.session.set({ [SESSION_KEY]: sessions });
+}
+
+function ensureBadgeTicker() {
+  if (badgeTimerId) {
+    return;
+  }
+
+  badgeTimerId = setInterval(() => {
+    updateAllBadges().catch(() => {});
+  }, BADGE_TICK_MS);
+
+  updateAllBadges().catch(() => {});
+}
+
+async function stopBadgeTickerIfIdle() {
+  const sessions = await readSessions();
+  const hasActiveSession = Object.values(sessions).some((session) => session && session.enabled);
+
+  if (hasActiveSession || !badgeTimerId) {
+    return;
+  }
+
+  clearInterval(badgeTimerId);
+  badgeTimerId = null;
+}
+
+async function updateAllBadges() {
+  const sessions = await readSessions();
+  const activeSessions = Object.values(sessions).filter((session) => session && session.enabled);
+
+  if (!activeSessions.length) {
+    await stopBadgeTickerIfIdle();
+    return;
+  }
+
+  await Promise.all(activeSessions.map((session) => updateBadgeForSession(session)));
+}
+
+async function updateBadgeForSession(session) {
+  if (!session || !session.enabled) {
+    return;
+  }
+
+  const badgeText = formatBadgeText(session.dueAt);
+
+  await chrome.action.setBadgeBackgroundColor({
+    tabId: session.tabId,
+    color: "#1a73e8"
+  });
+
+  if (chrome.action.setBadgeTextColor) {
+    await chrome.action.setBadgeTextColor({
+      tabId: session.tabId,
+      color: "#ffffff"
+    });
+  }
+
+  await chrome.action.setBadgeText({
+    tabId: session.tabId,
+    text: badgeText
+  });
+}
+
+async function clearBadge(tabId) {
+  await chrome.action.setBadgeText({ tabId, text: "" });
+}
+
+function formatBadgeText(dueAt) {
+  const remainingSeconds = Math.ceil(Math.max(0, dueAt - Date.now()) / 1000);
+
+  if (remainingSeconds <= 0) {
+    return "Now";
+  }
+
+  if (remainingSeconds < 60) {
+    return `${remainingSeconds}s`;
+  }
+
+  const remainingMinutes = Math.ceil(remainingSeconds / 60);
+
+  if (remainingMinutes > 99) {
+    return "99m";
+  }
+
+  return `${remainingMinutes}m`;
 }
 
 function getAlarmName(tabId) {
@@ -302,18 +412,45 @@ function normalizeTabId(tabId) {
   return normalized;
 }
 
-function normalizeInterval(intervalMinutes) {
-  const normalized = Number(intervalMinutes);
-
-  if ([1, 5, 10].includes(normalized)) {
-    return normalized;
+function normalizeSession(session) {
+  if (!session || typeof session !== "object") {
+    return session;
   }
 
-  throw new Error("Choose a 1, 5, or 10 minute interval.");
+  if (!session.enabled && !session.intervalSeconds && !session.intervalMinutes) {
+    return session;
+  }
+
+  const intervalSeconds = normalizeIntervalSeconds(session.intervalSeconds, session.intervalMinutes);
+
+  return {
+    ...session,
+    intervalSeconds
+  };
 }
 
-function minutesToMs(minutes) {
-  return minutes * 60 * 1000;
+function normalizeIntervalSeconds(intervalSeconds, legacyIntervalMinutes) {
+  const seconds = Number(intervalSeconds);
+
+  if (Number.isFinite(seconds) && seconds >= MIN_INTERVAL_SECONDS && seconds <= MAX_INTERVAL_SECONDS) {
+    return Math.round(seconds);
+  }
+
+  const minutes = Number(legacyIntervalMinutes);
+
+  if (Number.isFinite(minutes) && minutes > 0) {
+    const legacySeconds = Math.round(minutes * 60);
+
+    if (legacySeconds >= MIN_INTERVAL_SECONDS && legacySeconds <= MAX_INTERVAL_SECONDS) {
+      return legacySeconds;
+    }
+  }
+
+  throw new Error("Choose an interval from 1 to 999 minutes.");
+}
+
+function secondsToMs(seconds) {
+  return seconds * 1000;
 }
 
 function getUnsupportedReason(urlValue) {

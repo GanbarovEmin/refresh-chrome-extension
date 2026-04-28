@@ -1,7 +1,7 @@
 # Refresh
 
 Refresh is a small Chrome extension for controlled auto-refresh on the current tab.
-Choose a 1, 5, or 10 minute interval, start it from the popup, and the extension
+Choose a preset or custom interval, start it from the popup, and the extension
 will reload only that tab.
 
 The timer is activity-aware: clicks, typing, scrolling, pointer movement, input,
@@ -12,8 +12,10 @@ you are actively working.
 
 - Refreshes only the tab where the extension was started.
 - Supports fixed intervals: `1 min`, `5 min`, and `10 min`.
+- Supports a custom exact interval from `1` to `999` minutes.
 - Resets the timer after page interaction.
 - Shows live status and countdown in the popup.
+- Shows a short countdown badge on the extension icon.
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
 - Includes SVG source icon plus Chrome PNG icon sizes.
 
@@ -28,7 +30,7 @@ you are actively working.
 
 1. Open the page you want to refresh.
 2. Click the `Refresh` extension icon.
-3. Choose `1 min`, `5 min`, or `10 min`.
+3. Choose `1 min`, `5 min`, `10 min`, or `Custom`.
 4. Click `Start refresh`.
 
 Click `Stop refresh` to disable auto-refresh for the current tab.
