@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Refresh Options</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="options-shell">
+      <header class="options-header">
+        <img src="icons/icon_48.png" alt="" width="48" height="48">
+        <div>
+          <h1>Refresh site controls</h1>
+          <p>Manage saved profiles and blocked domains. Saved sites never auto-start silently; use the popup to apply them.</p>
+        </div>
+      </header>
+
+      <section class="info-card" aria-labelledby="profiles-title">
+        <h2 id="profiles-title">How site profiles work</h2>
+        <p>
+          A saved profile stores interval and safety settings for a hostname. A blocked domain prevents new refresh sessions
+          until the rule is removed here.
+        </p>
+      </section>
+
+      <section class="rules-card" aria-labelledby="rules-title">
+        <div class="section-row">
+          <h2 id="rules-title">Domain rules</h2>
+          <button id="reload-rules" type="button">Refresh</button>
+        </div>
+        <div id="rules-list" class="rules-list" aria-live="polite">
+          <p class="empty-state">No domain rules yet.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="src/options.js"></script>
+  </body>
+</html>

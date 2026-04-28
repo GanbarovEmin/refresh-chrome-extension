@@ -18,6 +18,14 @@ const historyList = document.querySelector("#history-list");
 const intervalInputs = [...document.querySelectorAll("input[name='interval']")];
 const customField = document.querySelector("#custom-field");
 const customMinutesInput = document.querySelector("#custom-minutes");
+const siteHostname = document.querySelector("#site-hostname");
+const siteStatus = document.querySelector("#site-status");
+const rememberSiteButton = document.querySelector("#remember-site");
+const useSiteProfileButton = document.querySelector("#use-site-profile");
+const neverRunSiteButton = document.querySelector("#never-run-site");
+const openOptionsButton = document.querySelector("#open-options");
+const activeTabsCount = document.querySelector("#active-tabs-count");
+const activeTabsList = document.querySelector("#active-tabs-list");
 
 const PREFERRED_INTERVAL_KEY = "refresh.preferredInterval";
 const SAFETY_SETTINGS_KEY = "refresh.safetySettings.v1";
@@ -27,6 +35,8 @@ const PRESET_SECONDS = [60, 300, 600];
 
 let activeTab = null;
 let currentSession = null;
+let siteContext = null;
+let activeSessions = [];
 let countdownTimer = null;
 let isBusy = false;
 
@@ -39,6 +49,7 @@ async function init() {
   await restoreSafetySettings();
   activeTab = await getActiveTab();
   await refreshState();
+  await refreshWorkspaceState();
 
   toggleButton.addEventListener("click", async () => {
     if (isBusy) {
@@ -68,6 +79,42 @@ async function init() {
 
   stopButton.addEventListener("click", () => {
     stopRefresh().catch((error) => {
+      renderError(getErrorMessage(error));
+    });
+  });
+
+  rememberSiteButton.addEventListener("click", () => {
+    saveCurrentSiteProfile().catch((error) => {
+      renderError(getErrorMessage(error));
+    });
+  });
+
+  useSiteProfileButton.addEventListener("click", () => {
+    useSavedSiteProfile().catch((error) => {
+      renderError(getErrorMessage(error));
+    });
+  });
+
+  neverRunSiteButton.addEventListener("click", () => {
+    setNeverRunForSite().catch((error) => {
+      renderError(getErrorMessage(error));
+    });
+  });
+
+  openOptionsButton.addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+  });
+
+  activeTabsList.addEventListener("click", (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest("button[data-action][data-tab-id]")
+      : null;
+
+    if (!button) {
+      return;
+    }
+
+    handleActiveTabAction(button.dataset.action, Number(button.dataset.tabId)).catch((error) => {
       renderError(getErrorMessage(error));
     });
   });
@@ -102,9 +149,11 @@ async function init() {
       return;
     }
 
-    refreshState().catch((error) => {
-      renderError(getErrorMessage(error));
-    });
+    refreshState()
+      .then(() => refreshWorkspaceState())
+      .catch((error) => {
+        renderError(getErrorMessage(error));
+      });
   }, 1000);
 }
 
@@ -130,6 +179,39 @@ async function refreshState() {
 
   currentSession = response.session;
   renderState(currentSession);
+}
+
+async function refreshWorkspaceState() {
+  await refreshSiteContext();
+  await refreshActiveSessions();
+}
+
+async function refreshSiteContext() {
+  const response = await sendMessage({
+    type: "REFRESH_GET_SITE_CONTEXT",
+    tabId: activeTab.id
+  });
+
+  if (!response.ok) {
+    throw new Error(response.error);
+  }
+
+  siteContext = response;
+  renderSiteContext();
+}
+
+async function refreshActiveSessions() {
+  const response = await sendMessage({
+    type: "REFRESH_GET_ACTIVE_SESSIONS",
+    currentTabId: activeTab.id
+  });
+
+  if (!response.ok) {
+    throw new Error(response.error);
+  }
+
+  activeSessions = Array.isArray(response.sessions) ? response.sessions : [];
+  renderActiveSessions(activeSessions, Number(response.total) || activeSessions.length);
 }
 
 async function startRefresh() {
@@ -163,6 +245,7 @@ async function startRefresh() {
 
     currentSession = response.session;
     renderState(currentSession);
+    await refreshWorkspaceState();
   } finally {
     setBusy(false);
   }
@@ -183,8 +266,121 @@ async function stopRefresh() {
 
     currentSession = null;
     renderState(currentSession);
+    await refreshWorkspaceState();
   } finally {
     setBusy(false);
+  }
+}
+
+async function saveCurrentSiteProfile() {
+  const selection = currentSession && currentSession.enabled
+    ? { ok: true, intervalSeconds: currentSession.intervalSeconds }
+    : getSelectedIntervalSelection();
+
+  if (!selection.ok) {
+    renderValidationError(selection.error);
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const settings = currentSession && currentSession.enabled
+      ? {
+        smartMode: currentSession.smartMode !== false,
+        activeTabOnly: Boolean(currentSession.activeTabOnly),
+        typingProtectionEnabled: currentSession.typingProtectionEnabled !== false
+      }
+      : getSafetySettings();
+    const response = await sendMessage({
+      type: "REFRESH_SAVE_SITE_PROFILE",
+      tabId: activeTab.id,
+      profile: {
+        intervalSeconds: selection.intervalSeconds,
+        ...settings
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+
+    await refreshSiteContext();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function useSavedSiteProfile() {
+  const rule = siteContext && siteContext.rule;
+
+  if (!rule || rule.type !== "saved-profile") {
+    return;
+  }
+
+  setSelectedIntervalSeconds(rule.intervalSeconds);
+  setSafetySettings(rule);
+  updateCustomVisibility();
+  await savePreferredSelection();
+  await saveSafetySettings();
+  await startRefresh();
+}
+
+async function setNeverRunForSite() {
+  setBusy(true);
+
+  try {
+    const response = await sendMessage({
+      type: "REFRESH_SET_NEVER_RUN",
+      tabId: activeTab.id
+    });
+
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+
+    currentSession = null;
+    renderState(currentSession);
+    await refreshWorkspaceState();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function handleActiveTabAction(action, tabId) {
+  if (!Number.isInteger(tabId)) {
+    return;
+  }
+
+  if (action === "open") {
+    const response = await sendMessage({
+      type: "REFRESH_FOCUS_TAB",
+      tabId
+    });
+
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+
+    return;
+  }
+
+  if (action === "stop") {
+    const response = await sendMessage({
+      type: "REFRESH_STOP",
+      tabId
+    });
+
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+
+    if (tabId === activeTab.id) {
+      currentSession = null;
+      renderState(currentSession);
+    }
+
+    await refreshWorkspaceState();
   }
 }
 
@@ -216,6 +412,7 @@ async function runSessionAction(type) {
 
     currentSession = response.session;
     renderState(currentSession);
+    await refreshWorkspaceState();
   } finally {
     setBusy(false);
   }
@@ -553,6 +750,129 @@ function renderHistory(history = []) {
   }
 }
 
+function renderSiteContext() {
+  const hostname = siteContext && siteContext.hostname;
+  const rule = siteContext && siteContext.rule;
+  const supported = Boolean(siteContext && siteContext.supported);
+  const isBlocked = rule && rule.type === "never-run";
+  const hasSavedProfile = rule && rule.type === "saved-profile";
+  const hasRunningSession = Boolean(currentSession && currentSession.enabled);
+
+  siteStatus.classList.toggle("is-blocked", Boolean(isBlocked));
+  siteHostname.textContent = hostname || "No domain";
+
+  if (!supported) {
+    siteStatus.textContent = siteContext && siteContext.unsupportedReason
+      ? siteContext.unsupportedReason
+      : "Site profiles are available for regular web domains.";
+  } else if (isBlocked) {
+    siteStatus.textContent = "Refresh is disabled for this domain. Remove the rule in Options to run it again.";
+  } else if (hasSavedProfile) {
+    siteStatus.textContent = `Saved profile available: ${formatIntervalLabel(rule.intervalSeconds)}.`;
+  } else {
+    siteStatus.textContent = "No profile saved for this site.";
+  }
+
+  rememberSiteButton.disabled = isBusy || !supported || isBlocked;
+  useSiteProfileButton.disabled = isBusy || !supported || !hasSavedProfile || hasRunningSession || isBlocked;
+  neverRunSiteButton.disabled = isBusy || !supported || isBlocked;
+  openOptionsButton.disabled = isBusy;
+
+  if (isBlocked && !hasRunningSession) {
+    renderDomainBlockedStatus();
+  }
+
+  applySiteRestriction();
+}
+
+function renderDomainBlockedStatus() {
+  clearStatusClasses();
+  setStatusVisualState("error");
+  renderProgressRing(0);
+  stateLabel.textContent = "Blocked";
+  stateLabel.classList.add("is-error");
+  countdown.textContent = "Blocked";
+  statusMessage.textContent = "Refresh is disabled for this domain. Remove the rule in Options to start again.";
+  statusMessage.classList.add("is-error");
+  resetMessage.textContent = "Domain rule";
+  nextRefreshAtValue.textContent = "Not scheduled";
+  lastRefreshValue.textContent = "Never";
+  refreshCountValue.textContent = "0";
+  renderHistory([]);
+  setSessionActionsDisabled(true);
+  toggleButton.textContent = "Start refresh";
+}
+
+function renderActiveSessions(sessions = [], total = sessions.length) {
+  activeTabsList.textContent = "";
+  activeTabsCount.textContent = String(total);
+
+  if (!sessions.length) {
+    const item = document.createElement("li");
+    item.textContent = "No active refresh tabs";
+    activeTabsList.append(item);
+    return;
+  }
+
+  for (const session of sessions) {
+    const item = document.createElement("li");
+    const main = document.createElement("div");
+    const title = document.createElement("strong");
+    const meta = document.createElement("span");
+    const controls = document.createElement("div");
+    const openButton = document.createElement("button");
+    const stopButtonItem = document.createElement("button");
+
+    item.className = "active-tab-item";
+    main.className = "active-tab-main";
+    controls.className = "active-tab-controls";
+    title.textContent = session.title || session.hostname || "Untitled";
+    title.title = title.textContent;
+    meta.textContent = `${session.hostname || "local"} · ${formatIntervalLabel(session.intervalSeconds)} · ${formatActiveTabStatus(session)}`;
+    openButton.className = "active-tab-action";
+    openButton.type = "button";
+    openButton.textContent = "Open";
+    openButton.dataset.action = "open";
+    openButton.dataset.tabId = String(session.tabId);
+    stopButtonItem.className = "active-tab-action";
+    stopButtonItem.type = "button";
+    stopButtonItem.textContent = "Stop";
+    stopButtonItem.dataset.action = "stop";
+    stopButtonItem.dataset.tabId = String(session.tabId);
+
+    main.append(title, meta);
+
+    if (session.isCurrent) {
+      const currentLabel = document.createElement("span");
+      currentLabel.className = "active-tab-current";
+      currentLabel.textContent = "Current";
+      controls.append(currentLabel);
+    } else {
+      controls.append(openButton);
+    }
+
+    controls.append(stopButtonItem);
+    item.append(main, controls);
+    activeTabsList.append(item);
+  }
+}
+
+function formatActiveTabStatus(session) {
+  if (session.paused) {
+    return "Paused";
+  }
+
+  if (session.skipReason === "inactive") {
+    return "Skipped";
+  }
+
+  if (session.skipReason === "typing") {
+    return "Waiting";
+  }
+
+  return formatRemainingTime(Math.max(0, Number(session.dueAt) - Date.now()));
+}
+
 function formatTimestamp(timestamp, fallback = "Never") {
   const value = Number(timestamp);
 
@@ -652,6 +972,22 @@ function setBusy(nextBusy) {
   refreshNowButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
   stopButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
   setSafetyControlsDisabled(nextBusy);
+
+  if (siteContext) {
+    renderSiteContext();
+  }
+
+  applySiteRestriction();
+}
+
+function applySiteRestriction() {
+  const rule = siteContext && siteContext.rule;
+  const isBlocked = rule && rule.type === "never-run";
+  const hasRunningSession = Boolean(currentSession && currentSession.enabled);
+
+  if (!isBusy) {
+    toggleButton.disabled = Boolean(isBlocked && !hasRunningSession);
+  }
 }
 
 function renderError(message) {

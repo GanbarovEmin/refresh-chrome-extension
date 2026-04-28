@@ -18,6 +18,10 @@ typing without a click does not restart the timer.
 - Typing protection postpones refresh while editable fields or dirty forms are detected.
 - Provides `Pause`, `Resume`, `Reset timer`, `Refresh now`, and `Stop`.
 - Shows live countdown with a premium progress ring, next refresh time, refresh history, and session stats.
+- Saves site profiles for domains you reuse often.
+- Blocks refresh on domains marked as `Never run`.
+- Shows an `Active tabs` overview with quick open/stop controls.
+- Includes an Options page for managing saved and blocked domains.
 - Shows a compact status badge on the extension icon.
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
 - Includes source SVG plus Chrome PNG icon sizes.
@@ -51,6 +55,27 @@ typing without a click does not restart the timer.
 - `Refresh now` reloads the tab immediately and schedules the next refresh for
   the full selected interval.
 - `Stop` removes the session from the current tab and clears the badge.
+
+## Site Controls
+
+Refresh can remember workspace settings per hostname without starting anything
+silently:
+
+- `Remember` saves the current interval and safety settings for the current
+  domain.
+- `Use saved` applies a saved profile and starts refresh on the current tab.
+- `Never run` blocks new refresh sessions on the current domain until the rule
+  is removed in Options.
+- `Options` opens the domain rules manager.
+
+Saved profiles are prompt-based. Opening a saved domain shows `Saved profile
+available`, but the extension waits for you to click `Use saved`.
+
+## Active Tabs
+
+The popup shows up to four tabs where Refresh is currently running. Each row
+shows the title/domain, interval, current status or countdown, plus `Open` and
+`Stop` actions. The current tab is marked with `Current`.
 
 ## Safe Behavior
 
@@ -102,9 +127,12 @@ browser session ends.
 manifest.json       Chrome extension manifest
 popup.html          Extension popup markup
 popup.css           Popup styling
+options.html        Domain rules manager
+options.css         Options page styling
 src/background.js   Per-tab timer, alarms, reload flow
 src/content.js      Page click detection and safe-input guard state
 src/popup.js        Popup state and controls
+src/options.js      Saved and blocked domain rules UI
 icons/              Source SVG and PNG extension icons
 test-page.html      Local manual QA page
 ```

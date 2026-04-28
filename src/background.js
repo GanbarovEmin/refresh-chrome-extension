@@ -1,4 +1,5 @@
 const SESSION_KEY = "refresh.sessions.v1";
+const DOMAIN_RULES_KEY = "refresh.domainRules.v1";
 const ALARM_PREFIX = "refresh-tab:";
 const BADGE_TICK_MS = 1000;
 const MIN_INTERVAL_SECONDS = 60;
@@ -79,6 +80,38 @@ async function handleMessage(message, sender) {
     return getStateResponse(message.tabId);
   }
 
+  if (message.type === "REFRESH_GET_SITE_CONTEXT") {
+    return getSiteContext(message.tabId);
+  }
+
+  if (message.type === "REFRESH_SAVE_SITE_PROFILE") {
+    return saveSiteProfile(message.tabId, message.profile);
+  }
+
+  if (message.type === "REFRESH_SET_NEVER_RUN") {
+    return setNeverRunRule(message.tabId);
+  }
+
+  if (message.type === "REFRESH_SET_DOMAIN_NEVER_RUN") {
+    return setNeverRunDomain(message.hostname);
+  }
+
+  if (message.type === "REFRESH_DELETE_DOMAIN_RULE") {
+    return deleteDomainRule(message.hostname);
+  }
+
+  if (message.type === "REFRESH_GET_DOMAIN_RULES") {
+    return getDomainRulesResponse();
+  }
+
+  if (message.type === "REFRESH_GET_ACTIVE_SESSIONS") {
+    return getActiveSessionsResponse(message.currentTabId);
+  }
+
+  if (message.type === "REFRESH_FOCUS_TAB") {
+    return focusTab(message.tabId);
+  }
+
   if (message.type === "REFRESH_START") {
     return startSession(message);
   }
@@ -134,10 +167,22 @@ async function startSession(message) {
   const settings = normalizeSettings(message.settings || message);
   const tab = await chrome.tabs.get(normalizedTabId);
   const unsupportedReason = getUnsupportedReason(tab.url);
+  const hostname = getHostname(tab.url);
 
   if (unsupportedReason) {
     await setTabError(normalizedTabId, unsupportedReason, tab.url);
     return { ok: false, error: unsupportedReason };
+  }
+
+  if (hostname) {
+    const rule = await getDomainRule(hostname);
+
+    if (rule && rule.type === "never-run") {
+      return {
+        ok: false,
+        error: "Refresh is disabled for this domain. Remove the rule in Options to run it here."
+      };
+    }
   }
 
   const now = Date.now();
@@ -191,6 +236,145 @@ async function getStateResponse(tabId) {
   const session = sessions[String(normalizedTabId)] || null;
 
   return { ok: true, session, now: Date.now() };
+}
+
+async function getSiteContext(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const tab = await chrome.tabs.get(normalizedTabId);
+  const unsupportedReason = getUnsupportedReason(tab.url);
+  const hostname = getHostname(tab.url);
+  const rule = hostname ? await getDomainRule(hostname) : null;
+
+  return {
+    ok: true,
+    hostname,
+    rule,
+    supported: !unsupportedReason && Boolean(hostname),
+    unsupportedReason
+  };
+}
+
+async function saveSiteProfile(tabId, profile = {}) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const tab = await chrome.tabs.get(normalizedTabId);
+  const hostname = getHostname(tab.url);
+
+  if (!hostname) {
+    return { ok: false, error: "This page does not have a supported domain." };
+  }
+
+  const intervalSeconds = normalizeIntervalSeconds(profile.intervalSeconds);
+  const settings = normalizeSettings(profile.settings || profile);
+  const rules = await readDomainRules();
+  const rule = {
+    type: "saved-profile",
+    hostname,
+    intervalSeconds,
+    smartMode: settings.smartMode,
+    activeTabOnly: settings.activeTabOnly,
+    typingProtectionEnabled: settings.typingProtectionEnabled,
+    updatedAt: Date.now()
+  };
+
+  rules[hostname] = rule;
+  await writeDomainRules(rules);
+
+  return { ok: true, hostname, rule };
+}
+
+async function setNeverRunRule(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const tab = await chrome.tabs.get(normalizedTabId);
+  const hostname = getHostname(tab.url);
+
+  if (!hostname) {
+    return { ok: false, error: "This page does not have a supported domain." };
+  }
+
+  const rules = await readDomainRules();
+  const rule = {
+    type: "never-run",
+    hostname,
+    updatedAt: Date.now()
+  };
+
+  rules[hostname] = rule;
+  await writeDomainRules(rules);
+  await removeSession(normalizedTabId);
+
+  return { ok: true, hostname, rule };
+}
+
+async function deleteDomainRule(hostname) {
+  const normalizedHostname = normalizeHostname(hostname);
+  const rules = await readDomainRules();
+
+  delete rules[normalizedHostname];
+  await writeDomainRules(rules);
+
+  return { ok: true, hostname: normalizedHostname };
+}
+
+async function setNeverRunDomain(hostname) {
+  const normalizedHostname = normalizeHostname(hostname);
+
+  if (!normalizedHostname) {
+    return { ok: false, error: "Choose a valid domain." };
+  }
+
+  const rules = await readDomainRules();
+  const rule = {
+    type: "never-run",
+    hostname: normalizedHostname,
+    updatedAt: Date.now()
+  };
+
+  rules[normalizedHostname] = rule;
+  await writeDomainRules(rules);
+
+  return { ok: true, hostname: normalizedHostname, rule };
+}
+
+async function getDomainRulesResponse() {
+  const rules = await readDomainRules();
+
+  return {
+    ok: true,
+    rules: Object.values(rules).sort((a, b) => String(a.hostname).localeCompare(String(b.hostname)))
+  };
+}
+
+async function getActiveSessionsResponse(currentTabId) {
+  const sessions = await readSessions();
+  const normalizedCurrentTabId = Number(currentTabId);
+  const activeSessions = [];
+
+  for (const session of Object.values(sessions)) {
+    if (!session || !session.enabled) {
+      continue;
+    }
+
+    try {
+      const tab = await chrome.tabs.get(session.tabId);
+      activeSessions.push(formatActiveSession(session, tab, session.tabId === normalizedCurrentTabId));
+    } catch (error) {
+      await removeSession(session.tabId);
+    }
+  }
+
+  activeSessions.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || a.hostname.localeCompare(b.hostname));
+
+  return { ok: true, sessions: activeSessions.slice(0, 4), total: activeSessions.length };
+}
+
+async function focusTab(tabId) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const tab = await chrome.tabs.get(normalizedTabId);
+
+  await chrome.windows.update(tab.windowId, { focused: true });
+  await chrome.tabs.update(normalizedTabId, { active: true });
+
+  return { ok: true };
 }
 
 async function resetSessionAfterActivity(tabId, activityAt) {
@@ -581,6 +765,31 @@ async function writeSessions(sessions) {
   await chrome.storage.session.set({ [SESSION_KEY]: sessions });
 }
 
+async function readDomainRules() {
+  const data = await chrome.storage.local.get(DOMAIN_RULES_KEY);
+  const rules = data[DOMAIN_RULES_KEY];
+
+  if (!rules || typeof rules !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(rules)
+      .map(([hostname, rule]) => normalizeDomainRule(hostname, rule))
+      .filter(Boolean)
+      .map((rule) => [rule.hostname, rule])
+  );
+}
+
+async function writeDomainRules(rules) {
+  await chrome.storage.local.set({ [DOMAIN_RULES_KEY]: rules });
+}
+
+async function getDomainRule(hostname) {
+  const rules = await readDomainRules();
+  return rules[normalizeHostname(hostname)] || null;
+}
+
 function ensureBadgeTicker() {
   if (badgeTimerId) {
     return;
@@ -774,6 +983,94 @@ function normalizeSettings(settings = {}) {
     activeTabOnly: Boolean(settings.activeTabOnly),
     typingProtectionEnabled: settings.typingProtectionEnabled !== false
   };
+}
+
+function normalizeHostname(hostname) {
+  return String(hostname || "").trim().toLowerCase();
+}
+
+function getHostname(urlValue) {
+  if (!urlValue) {
+    return "";
+  }
+
+  try {
+    return normalizeHostname(new URL(urlValue).hostname);
+  } catch (error) {
+    return "";
+  }
+}
+
+function normalizeDomainRule(hostname, rule) {
+  if (!rule || typeof rule !== "object") {
+    return null;
+  }
+
+  const normalizedHostname = normalizeHostname(rule.hostname || hostname);
+
+  if (!normalizedHostname) {
+    return null;
+  }
+
+  if (rule.type === "never-run") {
+    return {
+      type: "never-run",
+      hostname: normalizedHostname,
+      updatedAt: Number(rule.updatedAt) || Date.now()
+    };
+  }
+
+  if (rule.type === "saved-profile") {
+    try {
+      const intervalSeconds = normalizeIntervalSeconds(rule.intervalSeconds);
+      const settings = normalizeSettings(rule);
+
+      return {
+        type: "saved-profile",
+        hostname: normalizedHostname,
+        intervalSeconds,
+        smartMode: settings.smartMode,
+        activeTabOnly: settings.activeTabOnly,
+        typingProtectionEnabled: settings.typingProtectionEnabled,
+        updatedAt: Number(rule.updatedAt) || Date.now()
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+function formatActiveSession(session, tab, isCurrent) {
+  return {
+    tabId: session.tabId,
+    title: tab.title || session.title || "Untitled",
+    url: tab.url || session.url || "",
+    hostname: getHostname(tab.url || session.url) || "local",
+    intervalSeconds: session.intervalSeconds,
+    dueAt: session.dueAt,
+    paused: session.paused,
+    skipReason: session.skipReason,
+    status: getSessionStatus(session),
+    isCurrent
+  };
+}
+
+function getSessionStatus(session) {
+  if (session.paused) {
+    return "Paused";
+  }
+
+  if (session.skipReason === "inactive") {
+    return "Skipped";
+  }
+
+  if (session.skipReason === "typing") {
+    return "Waiting";
+  }
+
+  return "Active";
 }
 
 function getDefaultGuardState() {

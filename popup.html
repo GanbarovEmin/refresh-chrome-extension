@@ -112,12 +112,36 @@
         </label>
       </section>
 
+      <section class="site-panel" aria-labelledby="site-title">
+        <div class="section-row">
+          <h2 id="site-title">Site</h2>
+          <span id="site-hostname" class="site-hostname">No domain</span>
+        </div>
+        <p id="site-status" class="site-status">No site profile saved.</p>
+        <div class="site-actions">
+          <button id="remember-site" class="secondary-button" type="button">Remember</button>
+          <button id="use-site-profile" class="secondary-button" type="button">Use saved</button>
+          <button id="never-run-site" class="secondary-button" type="button">Never run</button>
+          <button id="open-options" class="secondary-button" type="button">Options</button>
+        </div>
+      </section>
+
       <section class="history-panel" aria-labelledby="history-title">
         <div class="section-row">
           <h2 id="history-title">History</h2>
         </div>
         <ol id="history-list" class="history-list">
           <li>No events yet</li>
+        </ol>
+      </section>
+
+      <section class="active-tabs-panel" aria-labelledby="active-tabs-title">
+        <div class="section-row">
+          <h2 id="active-tabs-title">Active tabs</h2>
+          <span id="active-tabs-count" class="active-tabs-count">0</span>
+        </div>
+        <ol id="active-tabs-list" class="active-tabs-list">
+          <li>No active refresh tabs</li>
         </ol>
       </section>
 
