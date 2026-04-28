@@ -6,13 +6,19 @@ const toggleButton = document.querySelector("#toggle-refresh");
 const resetButton = document.querySelector("#reset-timer");
 const refreshNowButton = document.querySelector("#refresh-now");
 const stopButton = document.querySelector("#stop-refresh");
+const smartModeInput = document.querySelector("#smart-mode");
+const activeTabModeInput = document.querySelector("#active-tab-mode");
+const typingProtectionInput = document.querySelector("#typing-protection");
+const nextRefreshAtValue = document.querySelector("#next-refresh-at");
 const lastRefreshValue = document.querySelector("#last-refresh");
 const refreshCountValue = document.querySelector("#refresh-count");
+const historyList = document.querySelector("#history-list");
 const intervalInputs = [...document.querySelectorAll("input[name='interval']")];
 const customField = document.querySelector("#custom-field");
 const customMinutesInput = document.querySelector("#custom-minutes");
 
 const PREFERRED_INTERVAL_KEY = "refresh.preferredInterval";
+const SAFETY_SETTINGS_KEY = "refresh.safetySettings.v1";
 const MIN_CUSTOM_MINUTES = 1;
 const MAX_CUSTOM_MINUTES = 999;
 const PRESET_SECONDS = [60, 300, 600];
@@ -28,6 +34,7 @@ init().catch((error) => {
 
 async function init() {
   await restorePreferredInterval();
+  await restoreSafetySettings();
   activeTab = await getActiveTab();
   await refreshState();
 
@@ -62,6 +69,10 @@ async function init() {
       renderError(getErrorMessage(error));
     });
   });
+
+  smartModeInput.addEventListener("change", handleSafetySettingsChange);
+  activeTabModeInput.addEventListener("change", handleSafetySettingsChange);
+  typingProtectionInput.addEventListener("change", handleSafetySettingsChange);
 
   for (const input of intervalInputs) {
     input.addEventListener("change", () => {
@@ -135,7 +146,8 @@ async function startRefresh() {
     const response = await sendMessage({
       type: "REFRESH_START",
       tabId: activeTab.id,
-      intervalSeconds: selection.intervalSeconds
+      intervalSeconds: selection.intervalSeconds,
+      settings: getSafetySettings()
     });
 
     if (!response.ok) {
@@ -207,6 +219,37 @@ async function runSessionAction(type) {
   }
 }
 
+async function handleSafetySettingsChange() {
+  await saveSafetySettings();
+
+  if (!currentSession || !currentSession.enabled) {
+    return;
+  }
+
+  await runSessionSettingsUpdate();
+}
+
+async function runSessionSettingsUpdate() {
+  setBusy(true);
+
+  try {
+    const response = await sendMessage({
+      type: "REFRESH_UPDATE_SETTINGS",
+      tabId: activeTab.id,
+      settings: getSafetySettings()
+    });
+
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+
+    currentSession = response.session;
+    renderState(currentSession);
+  } finally {
+    setBusy(false);
+  }
+}
+
 function renderState(session) {
   clearStatusClasses();
   customMinutesInput.setAttribute("aria-invalid", "false");
@@ -225,8 +268,10 @@ function renderState(session) {
     statusMessage.textContent = session.error;
     statusMessage.classList.add("is-error");
     resetMessage.textContent = "Not available";
+    nextRefreshAtValue.textContent = "Not scheduled";
     lastRefreshValue.textContent = "Never";
     refreshCountValue.textContent = "0";
+    renderHistory(session.history);
     setSessionActionsDisabled(true);
     toggleButton.textContent = "Start refresh";
     return;
@@ -238,13 +283,16 @@ function renderState(session) {
     countdown.textContent = "Not scheduled";
     statusMessage.textContent = "Choose an interval and start refresh for this tab.";
     resetMessage.textContent = "Not started";
+    nextRefreshAtValue.textContent = "Not scheduled";
     lastRefreshValue.textContent = "Never";
     refreshCountValue.textContent = "0";
+    renderHistory([]);
     setSessionActionsDisabled(true);
     toggleButton.textContent = "Start refresh";
     return;
   }
 
+  setSafetySettings(session);
   setControlsDisabled(true);
   setSessionActionsDisabled(false);
 
@@ -257,6 +305,16 @@ function renderState(session) {
     stateLabel.classList.add("is-paused");
     statusMessage.textContent = `Paused with ${formatRemainingTime(remainingMs)} remaining. Resume keeps the saved countdown.`;
     toggleButton.textContent = "Resume";
+  } else if (session.skipReason === "inactive") {
+    stateLabel.textContent = "Skipped";
+    stateLabel.classList.add("is-skipped");
+    statusMessage.textContent = "Skipped because tab is inactive.";
+    toggleButton.textContent = "Pause";
+  } else if (session.skipReason === "typing") {
+    stateLabel.textContent = "Waiting";
+    stateLabel.classList.add("is-postponed");
+    statusMessage.textContent = "Typing detected. Refresh postponed.";
+    toggleButton.textContent = "Pause";
   } else if (recentlyClicked) {
     stateLabel.textContent = "Waiting";
     stateLabel.classList.add("is-waiting");
@@ -265,14 +323,18 @@ function renderState(session) {
   } else {
     stateLabel.textContent = "Active";
     stateLabel.classList.add("is-active");
-    statusMessage.textContent = `Running every ${intervalLabel}. Click inside the page resets the timer.`;
+    statusMessage.textContent = session.smartMode
+      ? `Running every ${intervalLabel}. Click inside the page resets the timer.`
+      : `Running every ${intervalLabel}. Smart mode is off; clicks are logged only.`;
     toggleButton.textContent = "Pause";
   }
 
   countdown.textContent = formatRemainingTime(remainingMs);
   resetMessage.textContent = formatLastResetReason(session.lastResetReason);
+  nextRefreshAtValue.textContent = session.paused ? "Paused" : formatTimestamp(session.nextRefreshAt || session.dueAt, "Not scheduled");
   lastRefreshValue.textContent = formatTimestamp(session.lastRefreshAt);
   refreshCountValue.textContent = String(Number(session.refreshCount || 0));
+  renderHistory(session.history);
 }
 
 function renderValidationError(message) {
@@ -284,15 +346,17 @@ function renderValidationError(message) {
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
   resetMessage.textContent = "Not started";
+  nextRefreshAtValue.textContent = "Not scheduled";
   lastRefreshValue.textContent = "Never";
   refreshCountValue.textContent = "0";
+  renderHistory([]);
   setSessionActionsDisabled(true);
   customMinutesInput.setAttribute("aria-invalid", "true");
   toggleButton.textContent = "Start refresh";
 }
 
 function clearStatusClasses() {
-  stateLabel.classList.remove("is-active", "is-waiting", "is-paused", "is-error");
+  stateLabel.classList.remove("is-active", "is-waiting", "is-paused", "is-skipped", "is-postponed", "is-error");
   statusMessage.classList.remove("is-error");
 }
 
@@ -343,10 +407,30 @@ function setSessionActionsDisabled(disabled) {
   stopButton.disabled = disabled;
 }
 
+function setSafetyControlsDisabled(disabled) {
+  smartModeInput.disabled = disabled;
+  activeTabModeInput.disabled = disabled;
+  typingProtectionInput.disabled = disabled;
+}
+
 function updateCustomVisibility() {
   const selected = intervalInputs.find((input) => input.checked);
   const isCustom = selected && selected.value === "custom";
   customField.classList.toggle("is-visible", Boolean(isCustom));
+}
+
+function getSafetySettings() {
+  return {
+    smartMode: smartModeInput.checked,
+    activeTabOnly: activeTabModeInput.value === "active",
+    typingProtectionEnabled: typingProtectionInput.checked
+  };
+}
+
+function setSafetySettings(settings = {}) {
+  smartModeInput.checked = settings.smartMode !== false;
+  activeTabModeInput.value = settings.activeTabOnly ? "active" : "always";
+  typingProtectionInput.checked = settings.typingProtectionEnabled !== false;
 }
 
 function formatRemainingTime(ms) {
@@ -407,11 +491,35 @@ function formatLastResetReason(reason) {
   return "Not started";
 }
 
-function formatTimestamp(timestamp) {
+function renderHistory(history = []) {
+  historyList.textContent = "";
+
+  const events = Array.isArray(history) ? history.slice(-5).reverse() : [];
+
+  if (!events.length) {
+    const item = document.createElement("li");
+    item.textContent = "No events yet";
+    historyList.append(item);
+    return;
+  }
+
+  for (const event of events) {
+    const item = document.createElement("li");
+    const label = document.createElement("span");
+    const time = document.createElement("time");
+
+    label.textContent = event.label || "Event";
+    time.textContent = formatTimestamp(event.at, "");
+    item.append(label, time);
+    historyList.append(item);
+  }
+}
+
+function formatTimestamp(timestamp, fallback = "Never") {
   const value = Number(timestamp);
 
   if (!Number.isFinite(value) || value <= 0) {
-    return "Never";
+    return fallback;
   }
 
   return new Date(value).toLocaleTimeString([], {
@@ -460,6 +568,18 @@ async function restorePreferredInterval() {
   updateCustomVisibility();
 }
 
+async function restoreSafetySettings() {
+  const result = await chrome.storage.local.get(SAFETY_SETTINGS_KEY);
+  const settings = result[SAFETY_SETTINGS_KEY];
+
+  if (!settings || typeof settings !== "object") {
+    setSafetySettings();
+    return;
+  }
+
+  setSafetySettings(settings);
+}
+
 async function savePreferredSelection() {
   const selection = getSelectedIntervalSelection();
   const selected = intervalInputs.find((input) => input.checked);
@@ -477,12 +597,19 @@ async function savePreferredSelection() {
   });
 }
 
+async function saveSafetySettings() {
+  await chrome.storage.local.set({
+    [SAFETY_SETTINGS_KEY]: getSafetySettings()
+  });
+}
+
 function setBusy(nextBusy) {
   isBusy = nextBusy;
   toggleButton.disabled = nextBusy;
   resetButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
   refreshNowButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
   stopButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
+  setSafetyControlsDisabled(nextBusy);
 }
 
 function renderError(message) {
@@ -495,8 +622,10 @@ function renderError(message) {
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
   resetMessage.textContent = "Not available";
+  nextRefreshAtValue.textContent = "Not scheduled";
   lastRefreshValue.textContent = "Never";
   refreshCountValue.textContent = "0";
+  renderHistory([]);
   setSessionActionsDisabled(true);
   toggleButton.textContent = "Start refresh";
 }

@@ -13,9 +13,12 @@ typing without a click does not restart the timer.
 - Refreshes only the tab where the extension was started.
 - Supports fixed intervals: `1 min`, `5 min`, and `10 min`.
 - Supports a custom exact interval from `1` to `999` minutes.
+- Smart mode refreshes only after a full interval without page clicks.
+- Optional active-tab-only mode skips refresh while the tab is inactive.
+- Typing protection postpones refresh while editable fields or dirty forms are detected.
 - Provides `Pause`, `Resume`, `Reset timer`, `Refresh now`, and `Stop`.
-- Shows live countdown, last refresh time, refresh count, and last reset reason.
-- Shows a compact countdown badge on the extension icon.
+- Shows live countdown, next refresh time, refresh history, and session stats.
+- Shows a compact status badge on the extension icon.
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
 - Includes source SVG plus Chrome PNG icon sizes.
 
@@ -35,6 +38,12 @@ typing without a click does not restart the timer.
 
 ## Controls
 
+- `Smart mode` makes clicks inside the page reset the countdown. When it is off,
+  clicks are logged but do not move the next refresh time.
+- `Refresh when` can keep the original always-refresh behavior or refresh only
+  when the tab is active in the focused Chrome window.
+- `Typing protection` postpones refresh for 60 seconds while input, textarea,
+  select, or contenteditable fields are active or dirty.
 - `Pause` stops the countdown without deleting the session.
 - `Resume` continues from the saved remaining time.
 - `Reset timer` restarts the countdown for the full selected interval without
@@ -43,15 +52,32 @@ typing without a click does not restart the timer.
   the full selected interval.
 - `Stop` removes the session from the current tab and clears the badge.
 
+## Safe Behavior
+
+Refresh is designed to avoid surprising page reloads during active work:
+
+- Page clicks reset the countdown only when Smart mode is on.
+- Mouse movement, scrolling, focus changes, and typing without a click do not
+  reset the countdown.
+- Typing protection uses edit/dirty state only as a guard. It does not count as
+  click activity.
+- In active-tab-only mode, skipped refreshes are retried later and can run when
+  the tab becomes active again.
+
 ## Status And Badge Behavior
 
-The popup shows the next refresh countdown, the last refresh time, the number of
-refreshes in the current browser session, and the last reset reason. Reset
-reasons include `Start`, `Click`, `Pause`, `Resume`, `Reset timer`,
-`Refresh now`, and `Auto refresh`.
+The popup shows the next refresh countdown, `Next at`, last refresh time, refresh
+count, last reset reason, and a compact event history. History keeps the latest
+session events such as start, click reset, manual reset, manual refresh, auto
+refresh, pause/resume, inactive skips, typing postpones, and setting changes.
 
-The toolbar badge shows a compact countdown while refresh is active. When the
-session is paused, the badge switches to a paused state.
+The toolbar badge shows a compact countdown while refresh is active:
+
+- Blue countdown: active.
+- Gray `PAU`: paused.
+- Orange `SKIP`: skipped because the tab is inactive.
+- Orange `WAIT`: postponed because typing or unsaved input is detected.
+- Red `!`: blocked/error state.
 
 ## Limitations
 
@@ -69,9 +95,10 @@ manifest.json       Chrome extension manifest
 popup.html          Extension popup markup
 popup.css           Popup styling
 src/background.js   Per-tab timer, alarms, reload flow
-src/content.js      Page click detection
+src/content.js      Page click detection and safe-input guard state
 src/popup.js        Popup state and controls
 icons/              Source SVG and PNG extension icons
+test-page.html      Local manual QA page
 ```
 
 ## Development Notes

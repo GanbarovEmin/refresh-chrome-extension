@@ -116,6 +116,16 @@ h1 {
   background: var(--muted);
 }
 
+.state-label.is-skipped,
+.state-label.is-postponed {
+  color: var(--amber);
+}
+
+.state-label.is-skipped::before,
+.state-label.is-postponed::before {
+  background: var(--amber);
+}
+
 .state-label.is-error {
   color: var(--red);
 }
@@ -125,6 +135,7 @@ h1 {
 }
 
 .control-group,
+.settings-group,
 .status-panel {
   display: grid;
   gap: 10px;
@@ -252,6 +263,58 @@ h2 {
   border-color: var(--red);
 }
 
+.settings-group {
+  padding-top: 2px;
+}
+
+.setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.setting-row strong {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.setting-row small {
+  display: block;
+  margin-top: 2px;
+  color: var(--subtle);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.setting-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--blue);
+}
+
+.setting-row select {
+  min-height: 32px;
+  max-width: 132px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 11px;
+  outline: none;
+  padding: 0 8px;
+}
+
+.setting-row select:focus-visible,
+.setting-row input:focus-visible {
+  outline: 3px solid rgba(26, 115, 232, 0.22);
+  outline-offset: 2px;
+}
+
 .status-panel {
   padding: 14px 0 2px;
   border-top: 1px solid var(--line);
@@ -294,8 +357,8 @@ h2 {
 
 .stats-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 8px;
   margin: 0;
   padding: 0;
 }
@@ -326,6 +389,37 @@ h2 {
 .action-group {
   display: grid;
   gap: 10px;
+}
+
+.history-panel {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.history-list {
+  display: grid;
+  gap: 5px;
+  max-height: 92px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.history-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.history-list time {
+  flex: 0 0 auto;
+  color: var(--subtle);
+  font-variant-numeric: tabular-nums;
 }
 
 .primary-button {

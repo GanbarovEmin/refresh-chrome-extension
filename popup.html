@@ -12,7 +12,7 @@
         <img class="brand-icon" src="icons/icon_32.png" alt="" width="32" height="32">
         <div>
           <h1>Refresh</h1>
-          <p>Click inside the page resets</p>
+          <p>Smart tab refresh controls</p>
         </div>
         <span id="tab-state" class="state-label">Inactive</span>
       </header>
@@ -50,6 +50,36 @@
         </label>
       </section>
 
+      <section class="settings-group" aria-labelledby="safety-title">
+        <div class="section-row">
+          <h2 id="safety-title">Safety</h2>
+        </div>
+        <label class="setting-row">
+          <span>
+            <strong>Smart mode</strong>
+            <small>Refresh only after a full interval without clicks.</small>
+          </span>
+          <input id="smart-mode" type="checkbox" checked>
+        </label>
+        <label class="setting-row">
+          <span>
+            <strong>Refresh when</strong>
+            <small>Control whether background tabs can refresh.</small>
+          </span>
+          <select id="active-tab-mode">
+            <option value="always">Always</option>
+            <option value="active">Only active tab</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span>
+            <strong>Typing protection</strong>
+            <small>Postpone refresh while editing or unsaved input is detected.</small>
+          </span>
+          <input id="typing-protection" type="checkbox" checked>
+        </label>
+      </section>
+
       <section class="status-panel" aria-label="Refresh status">
         <div>
           <span class="status-kicker">Next refresh</span>
@@ -57,6 +87,10 @@
         </div>
         <p id="status-message">Choose an interval and start refresh for this tab.</p>
         <dl class="stats-list">
+          <div>
+            <dt>Next at</dt>
+            <dd id="next-refresh-at">Not scheduled</dd>
+          </div>
           <div>
             <dt>Last refresh</dt>
             <dd id="last-refresh">Never</dd>
@@ -70,6 +104,15 @@
             <dd id="reset-message">Not started</dd>
           </div>
         </dl>
+      </section>
+
+      <section class="history-panel" aria-labelledby="history-title">
+        <div class="section-row">
+          <h2 id="history-title">History</h2>
+        </div>
+        <ol id="history-list" class="history-list">
+          <li>No events yet</li>
+        </ol>
       </section>
 
       <section class="action-group" aria-label="Refresh controls">

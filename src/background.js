@@ -3,6 +3,8 @@ const ALARM_PREFIX = "refresh-tab:";
 const BADGE_TICK_MS = 1000;
 const MIN_INTERVAL_SECONDS = 60;
 const MAX_INTERVAL_SECONDS = 999 * 60;
+const POSTPONE_DELAY_MS = 60 * 1000;
+const MAX_HISTORY_ITEMS = 10;
 const SUPPORTED_PROTOCOLS = ["http:", "https:", "file:"];
 
 let badgeTimerId = null;
@@ -40,6 +42,26 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   });
 });
 
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  processDueSession(tabId).catch(async (error) => {
+    await setTabError(tabId, getErrorMessage(error));
+  });
+});
+
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    return;
+  }
+
+  chrome.tabs.query({ active: true, windowId }).then(([tab]) => {
+    if (tab && typeof tab.id === "number") {
+      return processDueSession(tab.id);
+    }
+
+    return null;
+  }).catch(() => {});
+});
+
 chrome.runtime.onStartup.addListener(() => {
   restoreAlarms().catch(() => {});
 });
@@ -58,7 +80,7 @@ async function handleMessage(message, sender) {
   }
 
   if (message.type === "REFRESH_START") {
-    return startSession(message.tabId, message.intervalSeconds, message.intervalMinutes);
+    return startSession(message);
   }
 
   if (message.type === "REFRESH_STOP") {
@@ -82,9 +104,19 @@ async function handleMessage(message, sender) {
     return refreshSessionNow(message.tabId);
   }
 
+  if (message.type === "REFRESH_UPDATE_SETTINGS") {
+    return updateSessionSettings(message.tabId, message.settings);
+  }
+
   if (message.type === "REFRESH_USER_ACTIVITY") {
     const tabId = sender.tab && sender.tab.id;
     await resetSessionAfterActivity(tabId, message.at);
+    return { ok: true };
+  }
+
+  if (message.type === "REFRESH_GUARD_STATE") {
+    const tabId = sender.tab && sender.tab.id;
+    await updateGuardState(tabId, message);
     return { ok: true };
   }
 
@@ -95,9 +127,11 @@ async function handleMessage(message, sender) {
   return { ok: false, error: "Unknown message." };
 }
 
-async function startSession(tabId, intervalSeconds, legacyIntervalMinutes) {
+async function startSession(message) {
+  const { tabId, intervalSeconds, intervalMinutes: legacyIntervalMinutes } = message;
   const normalizedTabId = normalizeTabId(tabId);
   const normalizedIntervalSeconds = normalizeIntervalSeconds(intervalSeconds, legacyIntervalMinutes);
+  const settings = normalizeSettings(message.settings || message);
   const tab = await chrome.tabs.get(normalizedTabId);
   const unsupportedReason = getUnsupportedReason(tab.url);
 
@@ -107,11 +141,12 @@ async function startSession(tabId, intervalSeconds, legacyIntervalMinutes) {
   }
 
   const now = Date.now();
+  const dueAt = now + secondsToMs(normalizedIntervalSeconds);
   const session = {
     tabId: normalizedTabId,
     intervalSeconds: normalizedIntervalSeconds,
     enabled: true,
-    dueAt: now + secondsToMs(normalizedIntervalSeconds),
+    dueAt,
     startedAt: now,
     lastActivityAt: null,
     lastRefreshAt: null,
@@ -121,19 +156,28 @@ async function startSession(tabId, intervalSeconds, legacyIntervalMinutes) {
     pausedRemainingMs: null,
     pauseStartedAt: null,
     refreshCount: 0,
+    smartMode: settings.smartMode,
+    activeTabOnly: settings.activeTabOnly,
+    typingProtectionEnabled: settings.typingProtectionEnabled,
+    nextRefreshAt: dueAt,
+    skipReason: null,
+    postponedUntil: null,
+    guardState: getDefaultGuardState(),
+    history: [createHistoryEntry("start", "Started", now)],
     url: tab.url || "",
     title: tab.title || ""
   };
 
+  await saveSession(session);
+
   try {
     await injectContentScript(normalizedTabId);
   } catch (error) {
-    const message = getErrorMessage(error);
-    await setTabError(normalizedTabId, message, tab.url);
-    throw new Error(message);
+    const messageText = getErrorMessage(error);
+    await setTabError(normalizedTabId, messageText, tab.url);
+    throw new Error(messageText);
   }
 
-  await saveSession(session);
   await scheduleAlarm(session);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
@@ -165,13 +209,50 @@ async function resetSessionAfterActivity(tabId, activityAt) {
   const now = Number(activityAt) || Date.now();
   session.lastActivityAt = now;
   session.lastResetReason = "click";
-  session.dueAt = now + secondsToMs(session.intervalSeconds);
+
+  if (session.smartMode) {
+    session.dueAt = now + secondsToMs(session.intervalSeconds);
+    session.nextRefreshAt = session.dueAt;
+    session.skipReason = null;
+    session.postponedUntil = null;
+    await scheduleAlarm(session);
+  }
+
+  addHistory(session, "click", session.smartMode ? "Click reset" : "Click logged", now);
 
   sessions[key] = session;
   await writeSessions(sessions);
-  await scheduleAlarm(session);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
+}
+
+async function updateGuardState(tabId, guardMessage) {
+  if (typeof tabId !== "number") {
+    return;
+  }
+
+  const sessions = await readSessions();
+  const key = String(tabId);
+  const session = sessions[key];
+
+  if (!session || !session.enabled) {
+    return;
+  }
+
+  session.guardState = {
+    focusedEditable: Boolean(guardMessage.focusedEditable),
+    dirtyInput: Boolean(guardMessage.dirtyInput),
+    guardActive: Boolean(guardMessage.guardActive),
+    reason: typeof guardMessage.reason === "string" ? guardMessage.reason : "unknown",
+    updatedAt: Number(guardMessage.at) || Date.now()
+  };
+
+  sessions[key] = session;
+  await writeSessions(sessions);
+
+  if (!session.guardState.guardActive && session.skipReason === "typing") {
+    await processDueSession(tabId);
+  }
 }
 
 async function pauseSession(tabId) {
@@ -190,6 +271,10 @@ async function pauseSession(tabId) {
   session.pausedRemainingMs = Math.max(0, Number(session.dueAt) - now);
   session.pauseStartedAt = now;
   session.lastResetReason = "pause";
+  session.nextRefreshAt = null;
+  session.skipReason = null;
+  session.postponedUntil = null;
+  addHistory(session, "pause", "Paused", now);
 
   sessions[key] = session;
   await writeSessions(sessions);
@@ -213,6 +298,10 @@ async function resumeSession(tabId) {
   session.pauseStartedAt = null;
   session.lastResetReason = "resume";
   session.dueAt = now + remainingMs;
+  session.nextRefreshAt = session.dueAt;
+  session.skipReason = null;
+  session.postponedUntil = null;
+  addHistory(session, "resume", "Resumed", now);
 
   sessions[key] = session;
   await writeSessions(sessions);
@@ -232,13 +321,18 @@ async function resetSessionTimer(tabId) {
   const fullIntervalMs = secondsToMs(session.intervalSeconds);
 
   session.lastResetReason = "manual-reset";
+  session.skipReason = null;
+  session.postponedUntil = null;
+  addHistory(session, "manual-reset", "Reset timer", now);
 
   if (session.paused) {
     session.pausedRemainingMs = fullIntervalMs;
     session.pauseStartedAt = now;
+    session.nextRefreshAt = null;
     await clearAlarm(normalizedTabId);
   } else {
     session.dueAt = now + fullIntervalMs;
+    session.nextRefreshAt = session.dueAt;
     await scheduleAlarm(session);
   }
 
@@ -274,8 +368,12 @@ async function refreshSessionNow(tabId) {
   session.pausedRemainingMs = null;
   session.pauseStartedAt = null;
   session.dueAt = now + secondsToMs(session.intervalSeconds);
+  session.nextRefreshAt = session.dueAt;
+  session.skipReason = null;
+  session.postponedUntil = null;
   session.url = tab.url || session.url || "";
   session.title = tab.title || session.title || "";
+  addHistory(session, "manual-refresh", "Refresh now", now);
 
   sessions[key] = session;
   await writeSessions(sessions);
@@ -304,7 +402,7 @@ async function handleRefreshAlarm(tabId) {
     return;
   }
 
-  if (Date.now() + 500 < session.dueAt) {
+  if (Date.now() + 500 < session.dueAt && !session.skipReason) {
     await scheduleAlarm(session);
     await updateBadgeForSession(session);
     return;
@@ -318,6 +416,16 @@ async function handleRefreshAlarm(tabId) {
     return;
   }
 
+  if (session.activeTabOnly && !(await isTabCurrentlyActive(tab))) {
+    await postponeSession(session, "inactive", "Skipped because tab is inactive.");
+    return;
+  }
+
+  if (session.typingProtectionEnabled && session.guardState && session.guardState.guardActive) {
+    await postponeSession(session, "typing", "Typing detected. Refresh postponed.");
+    return;
+  }
+
   await chrome.tabs.reload(tabId);
 
   const now = Date.now();
@@ -325,8 +433,12 @@ async function handleRefreshAlarm(tabId) {
   session.lastResetReason = "refresh";
   session.refreshCount = Number(session.refreshCount || 0) + 1;
   session.dueAt = now + secondsToMs(session.intervalSeconds);
+  session.nextRefreshAt = session.dueAt;
+  session.skipReason = null;
+  session.postponedUntil = null;
   session.url = tab.url || session.url || "";
   session.title = tab.title || session.title || "";
+  addHistory(session, "refresh", "Auto refresh", now);
 
   sessions[key] = session;
   await writeSessions(sessions);
@@ -358,6 +470,7 @@ async function restoreContentScript(tabId) {
   await injectContentScript(tabId);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
+  await processDueSession(tabId);
 }
 
 async function restoreAlarms() {
@@ -376,8 +489,9 @@ async function restoreAlarms() {
         return;
       }
 
-      if (session.dueAt <= now) {
+      if (session.dueAt <= now && !session.skipReason) {
         session.dueAt = now + secondsToMs(session.intervalSeconds);
+        session.nextRefreshAt = session.dueAt;
         await saveSession(session);
       }
 
@@ -418,6 +532,9 @@ async function removeSession(tabId) {
 async function setTabError(tabId, error, url = "") {
   const normalizedTabId = normalizeTabId(tabId);
   const sessions = await readSessions();
+  const previousSession = sessions[String(normalizedTabId)];
+  const history = normalizeHistory(previousSession && previousSession.history);
+  history.push(createHistoryEntry("error", error));
 
   sessions[String(normalizedTabId)] = {
     tabId: normalizedTabId,
@@ -426,6 +543,10 @@ async function setTabError(tabId, error, url = "") {
     dueAt: null,
     paused: false,
     pausedRemainingMs: null,
+    nextRefreshAt: null,
+    skipReason: "error",
+    postponedUntil: null,
+    history: history.slice(-MAX_HISTORY_ITEMS),
     error,
     errorAt: Date.now(),
     url
@@ -433,7 +554,7 @@ async function setTabError(tabId, error, url = "") {
 
   await writeSessions(sessions);
   await clearAlarm(normalizedTabId);
-  await clearBadge(normalizedTabId);
+  await setErrorBadge(normalizedTabId);
   await stopBadgeTickerIfIdle();
 }
 
@@ -501,11 +622,11 @@ async function updateBadgeForSession(session) {
     return;
   }
 
-  const badgeText = session.paused ? "Paused" : formatBadgeText(session.dueAt);
+  const badgeState = getBadgeState(session);
 
   await chrome.action.setBadgeBackgroundColor({
     tabId: session.tabId,
-    color: session.paused ? "#5f6368" : "#1a73e8"
+    color: badgeState.color
   });
 
   if (chrome.action.setBadgeTextColor) {
@@ -517,12 +638,38 @@ async function updateBadgeForSession(session) {
 
   await chrome.action.setBadgeText({
     tabId: session.tabId,
-    text: badgeText
+    text: badgeState.text
   });
 }
 
 async function clearBadge(tabId) {
   await chrome.action.setBadgeText({ tabId, text: "" });
+}
+
+async function setErrorBadge(tabId) {
+  await chrome.action.setBadgeBackgroundColor({ tabId, color: "#d93025" });
+
+  if (chrome.action.setBadgeTextColor) {
+    await chrome.action.setBadgeTextColor({ tabId, color: "#ffffff" });
+  }
+
+  await chrome.action.setBadgeText({ tabId, text: "!" });
+}
+
+function getBadgeState(session) {
+  if (session.paused) {
+    return { text: "PAU", color: "#5f6368" };
+  }
+
+  if (session.skipReason === "inactive") {
+    return { text: "SKIP", color: "#f29900" };
+  }
+
+  if (session.skipReason === "typing") {
+    return { text: "WAIT", color: "#f29900" };
+  }
+
+  return { text: formatBadgeText(session.dueAt), color: "#1a73e8" };
 }
 
 function formatBadgeText(dueAt) {
@@ -570,6 +717,7 @@ function normalizeSession(session) {
 
   const intervalSeconds = normalizeIntervalSeconds(session.intervalSeconds, session.intervalMinutes);
   const paused = Boolean(session.paused);
+  const normalizedDueAt = Number(session.dueAt) || null;
 
   return {
     ...session,
@@ -578,7 +726,15 @@ function normalizeSession(session) {
     pausedRemainingMs: paused ? Math.max(0, Number(session.pausedRemainingMs) || 0) : null,
     pauseStartedAt: paused && Number.isFinite(Number(session.pauseStartedAt)) ? Number(session.pauseStartedAt) : null,
     lastManualRefreshAt: Number.isFinite(Number(session.lastManualRefreshAt)) ? Number(session.lastManualRefreshAt) : null,
-    refreshCount: Math.max(0, Math.round(Number(session.refreshCount) || 0))
+    refreshCount: Math.max(0, Math.round(Number(session.refreshCount) || 0)),
+    smartMode: session.smartMode !== false,
+    activeTabOnly: Boolean(session.activeTabOnly),
+    typingProtectionEnabled: session.typingProtectionEnabled !== false,
+    nextRefreshAt: paused ? null : (Number(session.nextRefreshAt) || normalizedDueAt),
+    skipReason: typeof session.skipReason === "string" ? session.skipReason : null,
+    postponedUntil: Number.isFinite(Number(session.postponedUntil)) ? Number(session.postponedUntil) : null,
+    guardState: normalizeGuardState(session.guardState),
+    history: normalizeHistory(session.history)
   };
 }
 
@@ -610,6 +766,123 @@ function normalizeIntervalSeconds(intervalSeconds, legacyIntervalMinutes) {
   }
 
   throw new Error("Choose an interval from 1 to 999 minutes.");
+}
+
+function normalizeSettings(settings = {}) {
+  return {
+    smartMode: settings.smartMode !== false,
+    activeTabOnly: Boolean(settings.activeTabOnly),
+    typingProtectionEnabled: settings.typingProtectionEnabled !== false
+  };
+}
+
+function getDefaultGuardState() {
+  return {
+    focusedEditable: false,
+    dirtyInput: false,
+    guardActive: false,
+    reason: "initial",
+    updatedAt: null
+  };
+}
+
+function normalizeGuardState(guardState) {
+  if (!guardState || typeof guardState !== "object") {
+    return getDefaultGuardState();
+  }
+
+  return {
+    focusedEditable: Boolean(guardState.focusedEditable),
+    dirtyInput: Boolean(guardState.dirtyInput),
+    guardActive: Boolean(guardState.guardActive),
+    reason: typeof guardState.reason === "string" ? guardState.reason : "unknown",
+    updatedAt: Number.isFinite(Number(guardState.updatedAt)) ? Number(guardState.updatedAt) : null
+  };
+}
+
+function normalizeHistory(history) {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  return history
+    .filter((item) => item && typeof item === "object")
+    .map((item) => ({
+      type: typeof item.type === "string" ? item.type : "event",
+      label: typeof item.label === "string" ? item.label : "Event",
+      at: Number.isFinite(Number(item.at)) ? Number(item.at) : Date.now()
+    }))
+    .slice(-MAX_HISTORY_ITEMS);
+}
+
+function createHistoryEntry(type, label, at = Date.now()) {
+  return { type, label, at };
+}
+
+function addHistory(session, type, label, at = Date.now()) {
+  session.history = normalizeHistory(session.history);
+  session.history.push(createHistoryEntry(type, label, at));
+  session.history = session.history.slice(-MAX_HISTORY_ITEMS);
+}
+
+async function updateSessionSettings(tabId, settings) {
+  const normalizedTabId = normalizeTabId(tabId);
+  const sessions = await readSessions();
+  const key = String(normalizedTabId);
+  const session = getEnabledSession(sessions, key);
+  const normalizedSettings = normalizeSettings(settings);
+
+  session.smartMode = normalizedSettings.smartMode;
+  session.activeTabOnly = normalizedSettings.activeTabOnly;
+  session.typingProtectionEnabled = normalizedSettings.typingProtectionEnabled;
+  addHistory(session, "settings", "Settings updated");
+
+  sessions[key] = session;
+  await writeSessions(sessions);
+  await updateBadgeForSession(session);
+  await processDueSession(normalizedTabId);
+
+  const latestSessions = await readSessions();
+  return { ok: true, session: latestSessions[key] || session };
+}
+
+async function postponeSession(session, reason, label) {
+  const sessions = await readSessions();
+  const key = String(session.tabId);
+  const now = Date.now();
+
+  session.skipReason = reason;
+  session.postponedUntil = now + POSTPONE_DELAY_MS;
+  session.dueAt = session.postponedUntil;
+  session.nextRefreshAt = session.dueAt;
+  addHistory(session, reason === "inactive" ? "skipped-inactive" : "postponed-typing", label, now);
+
+  sessions[key] = session;
+  await writeSessions(sessions);
+  await scheduleAlarm(session);
+  await updateBadgeForSession(session);
+  ensureBadgeTicker();
+}
+
+async function isTabCurrentlyActive(tab) {
+  if (!tab || !tab.active) {
+    return false;
+  }
+
+  const tabWindow = await chrome.windows.get(tab.windowId);
+  return Boolean(tabWindow && tabWindow.focused);
+}
+
+async function processDueSession(tabId) {
+  const sessions = await readSessions();
+  const session = sessions[String(tabId)];
+  const isDue = Date.now() >= Number(session && session.dueAt);
+
+  if (!session || !session.enabled || session.paused || (!isDue && !session.skipReason)) {
+    return;
+  }
+
+  await handleRefreshAlarm(tabId);
 }
 
 function secondsToMs(seconds) {
