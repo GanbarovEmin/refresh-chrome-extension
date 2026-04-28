@@ -17,7 +17,7 @@ typing without a click does not restart the timer.
 - Shows live countdown, last refresh time, refresh count, and last reset reason.
 - Shows a compact countdown badge on the extension icon.
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
-- Includes SVG source icon plus Chrome PNG icon sizes.
+- Includes source SVG plus Chrome PNG icon sizes.
 
 ## Install
 
@@ -71,7 +71,7 @@ popup.css           Popup styling
 src/background.js   Per-tab timer, alarms, reload flow
 src/content.js      Page click detection
 src/popup.js        Popup state and controls
-assets/             SVG and PNG extension icons
+icons/              Source SVG and PNG extension icons
 ```
 
 ## Development Notes
