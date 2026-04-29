@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
-    <main class="popup-shell" aria-live="polite">
+    <main class="popup-shell">
       <header class="brand">
         <img class="brand-icon" src="icons/icon_32.png" alt="" width="32" height="32">
         <div>
@@ -25,10 +25,10 @@
           </svg>
           <div class="countdown-core">
             <span class="status-kicker">Next refresh</span>
-            <strong id="countdown">Not scheduled</strong>
+            <strong id="countdown">Ready</strong>
           </div>
         </button>
-        <p id="status-message">Choose an interval and start refresh for this tab.</p>
+        <p id="status-message" aria-live="polite" aria-atomic="true">Choose an interval and start refresh for this tab.</p>
         <dl class="stats-list">
           <div>
             <dt>Next at</dt>

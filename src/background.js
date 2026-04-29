@@ -235,6 +235,18 @@ async function getStateResponse(tabId) {
   const sessions = await readSessions();
   const session = sessions[String(normalizedTabId)] || null;
 
+  if (session && !session.enabled && session.error) {
+    const tab = await chrome.tabs.get(normalizedTabId).catch(() => null);
+    const currentUrl = tab && tab.url ? tab.url : "";
+    const isSupportedNow = currentUrl && !getUnsupportedReason(currentUrl);
+    const isDifferentPage = currentUrl && currentUrl !== session.url;
+
+    if (isSupportedNow && isDifferentPage) {
+      await removeSession(normalizedTabId);
+      return { ok: true, session: null, now: Date.now() };
+    }
+  }
+
   return { ok: true, session, now: Date.now() };
 }
 
@@ -300,13 +312,18 @@ async function setNeverRunRule(tabId) {
 
   rules[hostname] = rule;
   await writeDomainRules(rules);
-  await removeSession(normalizedTabId);
+  await removeSessionsForHostname(hostname);
 
   return { ok: true, hostname, rule };
 }
 
 async function deleteDomainRule(hostname) {
   const normalizedHostname = normalizeHostname(hostname);
+
+  if (!normalizedHostname) {
+    return { ok: false, error: "Choose a valid domain." };
+  }
+
   const rules = await readDomainRules();
 
   delete rules[normalizedHostname];
@@ -331,6 +348,7 @@ async function setNeverRunDomain(hostname) {
 
   rules[normalizedHostname] = rule;
   await writeDomainRules(rules);
+  await removeSessionsForHostname(normalizedHostname);
 
   return { ok: true, hostname: normalizedHostname, rule };
 }
@@ -713,6 +731,45 @@ async function removeSession(tabId) {
   await stopBadgeTickerIfIdle();
 }
 
+async function removeSessionsForHostname(hostname) {
+  const normalizedHostname = normalizeHostname(hostname);
+
+  if (!normalizedHostname) {
+    return 0;
+  }
+
+  const sessions = await readSessions();
+  const matchingTabIds = [];
+
+  for (const session of Object.values(sessions)) {
+    if (!session || typeof session.tabId !== "number") {
+      continue;
+    }
+
+    let sessionHostname = "";
+
+    try {
+      const tab = await chrome.tabs.get(session.tabId);
+      sessionHostname = getHostname(tab.url) || getHostname(session.url);
+    } catch (error) {
+      sessionHostname = getHostname(session.url);
+
+      if (!sessionHostname) {
+        await removeSession(session.tabId);
+        continue;
+      }
+    }
+
+    if (sessionHostname === normalizedHostname) {
+      matchingTabIds.push(session.tabId);
+    }
+  }
+
+  await Promise.all(matchingTabIds.map((tabId) => removeSession(tabId)));
+
+  return matchingTabIds.length;
+}
+
 async function setTabError(tabId, error, url = "") {
   const normalizedTabId = normalizeTabId(tabId);
   const sessions = await readSessions();
@@ -986,7 +1043,31 @@ function normalizeSettings(settings = {}) {
 }
 
 function normalizeHostname(hostname) {
-  return String(hostname || "").trim().toLowerCase();
+  const rawValue = String(hostname || "").trim().toLowerCase();
+
+  if (!rawValue) {
+    return "";
+  }
+
+  let normalized = rawValue;
+
+  try {
+    normalized = new URL(rawValue).hostname;
+  } catch (error) {
+    normalized = rawValue;
+  }
+
+  normalized = normalized.replace(/\.$/, "");
+
+  if (!normalized || normalized.includes("/") || normalized.includes("\\") || normalized.includes("..")) {
+    return "";
+  }
+
+  if (!/^[a-z0-9.-]+$/.test(normalized)) {
+    return "";
+  }
+
+  return normalized;
 }
 
 function getHostname(urlValue) {

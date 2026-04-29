@@ -33,12 +33,14 @@ const SAFETY_SETTINGS_KEY = "refresh.safetySettings.v1";
 const MIN_CUSTOM_MINUTES = 1;
 const MAX_CUSTOM_MINUTES = 999;
 const PRESET_SECONDS = [60, 300, 600];
+const WORKSPACE_REFRESH_MS = 5000;
 
 let activeTab = null;
 let currentSession = null;
 let siteContext = null;
 let activeSessions = [];
 let countdownTimer = null;
+let lastWorkspaceRefreshAt = 0;
 let isBusy = false;
 
 init().catch((error) => {
@@ -50,7 +52,7 @@ async function init() {
   await restoreSafetySettings();
   activeTab = await getActiveTab();
   await refreshState();
-  await refreshWorkspaceState();
+  await refreshWorkspaceState({ force: true });
 
   toggleButton.addEventListener("click", runPrimaryRefreshAction);
   ringActionButton.addEventListener("click", runPrimaryRefreshAction);
@@ -171,7 +173,14 @@ async function refreshState() {
   renderState(currentSession);
 }
 
-async function refreshWorkspaceState() {
+async function refreshWorkspaceState(options = {}) {
+  const now = Date.now();
+
+  if (!options.force && now - lastWorkspaceRefreshAt < WORKSPACE_REFRESH_MS) {
+    return;
+  }
+
+  lastWorkspaceRefreshAt = now;
   await refreshSiteContext();
   await refreshActiveSessions();
 }
@@ -235,7 +244,7 @@ async function startRefresh() {
 
     currentSession = response.session;
     renderState(currentSession);
-    await refreshWorkspaceState();
+    await refreshWorkspaceState({ force: true });
   } finally {
     setBusy(false);
   }
@@ -256,7 +265,7 @@ async function stopRefresh() {
 
     currentSession = null;
     renderState(currentSession);
-    await refreshWorkspaceState();
+    await refreshWorkspaceState({ force: true });
   } finally {
     setBusy(false);
   }
@@ -309,7 +318,7 @@ async function saveCurrentSiteProfile() {
       throw new Error(response.error);
     }
 
-    await refreshSiteContext();
+    await refreshWorkspaceState({ force: true });
   } finally {
     setBusy(false);
   }
@@ -345,7 +354,7 @@ async function setNeverRunForSite() {
 
     currentSession = null;
     renderState(currentSession);
-    await refreshWorkspaceState();
+    await refreshWorkspaceState({ force: true });
   } finally {
     setBusy(false);
   }
@@ -384,7 +393,7 @@ async function handleActiveTabAction(action, tabId) {
       renderState(currentSession);
     }
 
-    await refreshWorkspaceState();
+    await refreshWorkspaceState({ force: true });
   }
 }
 
@@ -416,7 +425,7 @@ async function runSessionAction(type) {
 
     currentSession = response.session;
     renderState(currentSession);
-    await refreshWorkspaceState();
+    await refreshWorkspaceState({ force: true });
   } finally {
     setBusy(false);
   }
@@ -448,6 +457,7 @@ async function runSessionSettingsUpdate() {
 
     currentSession = response.session;
     renderState(currentSession);
+    await refreshWorkspaceState({ force: true });
   } finally {
     setBusy(false);
   }
@@ -488,7 +498,7 @@ function renderState(session) {
     setStatusVisualState("inactive");
     renderProgressRing(0);
     stateLabel.textContent = "Inactive";
-    countdown.textContent = "Not scheduled";
+    countdown.textContent = "Ready";
     statusMessage.textContent = "Choose an interval and start refresh for this tab.";
     resetMessage.textContent = "Not started";
     nextRefreshAtValue.textContent = "Not scheduled";
@@ -561,7 +571,7 @@ function renderValidationError(message) {
   renderProgressRing(0);
   stateLabel.textContent = "Error";
   stateLabel.classList.add("is-error");
-  countdown.textContent = "Not scheduled";
+  countdown.textContent = "Ready";
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
   resetMessage.textContent = "Not started";
