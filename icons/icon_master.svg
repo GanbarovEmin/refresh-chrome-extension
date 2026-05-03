@@ -1,20 +1,28 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="170" y1="120" x2="850" y2="900" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#3F8CFF"/>
-      <stop offset="0.56" stop-color="#1464E8"/>
-      <stop offset="1" stop-color="#0D48B8"/>
+    <linearGradient id="surface" x1="176" y1="120" x2="848" y2="904" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B8AF7"/>
+      <stop offset="0.52" stop-color="#1A73E8"/>
+      <stop offset="1" stop-color="#145CC4"/>
     </linearGradient>
-    <filter id="shadow" x="40" y="40" width="944" height="944" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="26" stdDeviation="28" flood-color="#2358BE" flood-opacity="0.22"/>
+    <linearGradient id="mark" x1="318" y1="260" x2="730" y2="748" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E8F0FE"/>
+    </linearGradient>
+    <filter id="softShadow" x="52" y="48" width="920" height="936" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#174EA6" flood-opacity="0.2"/>
     </filter>
   </defs>
-  <rect x="92" y="92" width="840" height="840" rx="230" fill="url(#bg)" filter="url(#shadow)"/>
-  <ellipse cx="390" cy="300" rx="260" ry="235" fill="white" fill-opacity="0.13"/>
-  <path d="M333 382C379 299 484 258 582 291C687 326 750 431 728 540C706 649 605 724 494 708C395 694 319 622 296 529" stroke="white" stroke-width="78" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M703 276L722 444L577 364L703 276Z" fill="white"/>
-  <rect x="417" y="389" width="190" height="210" rx="42" fill="white" fill-opacity="0.14" stroke="white" stroke-opacity="0.38" stroke-width="10"/>
-  <rect x="461" y="443" width="102" height="24" rx="10" fill="white" fill-opacity="0.48"/>
-  <circle cx="512" cy="586" r="26" fill="white" fill-opacity="0.84"/>
-  <circle cx="713" cy="239" r="29" fill="white" fill-opacity="0.8"/>
+
+  <rect x="96" y="92" width="832" height="832" rx="224" fill="url(#surface)" filter="url(#softShadow)"/>
+  <path d="M252 250C318 174 454 141 588 176C721 211 819 307 848 427" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="42" stroke-linecap="round"/>
+
+  <rect x="356" y="380" width="312" height="304" rx="82" fill="#FFFFFF" fill-opacity="0.16" stroke="#FFFFFF" stroke-opacity="0.38" stroke-width="24"/>
+  <rect x="430" y="454" width="164" height="34" rx="17" fill="#FFFFFF" fill-opacity="0.58"/>
+  <rect x="430" y="526" width="112" height="34" rx="17" fill="#FFFFFF" fill-opacity="0.35"/>
+
+  <path d="M312 514C312 403 402 313 513 313C606 313 684 376 707 462" stroke="url(#mark)" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M712 314L730 504L564 410L712 314Z" fill="url(#mark)"/>
+  <path d="M712 510C712 621 622 711 511 711C418 711 340 648 317 562" stroke="url(#mark)" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M312 710L294 520L460 614L312 710Z" fill="url(#mark)"/>
 </svg>

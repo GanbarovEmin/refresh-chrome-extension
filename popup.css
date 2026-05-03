@@ -572,7 +572,8 @@ h2 {
 
 .ring-glyph svg,
 .stat-icon svg,
-.setting-icon svg {
+.setting-icon svg,
+.button-icon {
   display: block;
   width: 100%;
   height: 100%;
@@ -581,7 +582,7 @@ h2 {
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2;
+  stroke-width: 1.9;
   vector-effect: non-scaling-stroke;
 }
 
@@ -692,6 +693,10 @@ h2 {
 
 .site-actions .secondary-button {
   position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   justify-content: flex-start;
   min-height: 46px;
   border: 0;
@@ -701,6 +706,19 @@ h2 {
   color: var(--text);
   font-size: 13px;
   text-align: left;
+}
+
+.site-actions .secondary-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.button-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
 }
 
 .site-actions .secondary-button + .secondary-button {
@@ -756,11 +774,12 @@ h2 {
 
 .history-list li::before {
   content: "";
-  width: 15px;
-  height: 15px;
-  border: 2px solid var(--blue);
-  border-left-color: transparent;
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(26, 115, 232, 0.18);
   border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.08);
 }
 
 .history-list span {

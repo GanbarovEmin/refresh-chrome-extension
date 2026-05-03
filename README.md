@@ -116,6 +116,10 @@ action remains available in a light sticky action area. The ring follows the
 current refresh status: blue for active, gray for paused, orange for skipped or
 postponed, and red for errors.
 
+The icon system uses a single Stitch-inspired direction: precise rounded
+geometry, one Google-blue accent family, neutral line icons inside the popup,
+and a matching extension icon generated from `icons/icon_master.svg`.
+
 ## Limitations
 
 Chrome blocks extension scripts on browser system pages such as `chrome://`,
@@ -129,6 +133,7 @@ browser session ends.
 
 ```text
 manifest.json       Chrome extension manifest
+DESIGN.md           Stitch-inspired visual and icon system
 popup.html          Extension popup markup
 popup.css           Popup styling
 options.html        Domain rules manager
