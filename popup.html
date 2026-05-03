@@ -16,6 +16,7 @@
             <p>Smart tab refresh controls</p>
           </div>
           <span id="tab-state" class="state-label">Inactive</span>
+          <span class="brand-menu" aria-hidden="true"></span>
         </header>
 
         <button id="ring-action" class="countdown-ring" type="button" aria-label="Start refresh">
@@ -26,6 +27,7 @@
           <div class="countdown-core">
             <span class="status-kicker">Next refresh</span>
             <strong id="countdown">Ready</strong>
+            <span class="ring-glyph" aria-hidden="true"></span>
           </div>
         </button>
         <p id="status-message" aria-live="polite" aria-atomic="true">Choose an interval and start refresh for this tab.</p>
@@ -63,18 +65,22 @@
         </section>
         <dl class="stats-list">
           <div>
+            <span class="stat-icon stat-icon-next" aria-hidden="true"></span>
             <dt>Next at</dt>
             <dd id="next-refresh-at">Not scheduled</dd>
           </div>
           <div>
+            <span class="stat-icon stat-icon-refresh" aria-hidden="true"></span>
             <dt>Last refresh</dt>
             <dd id="last-refresh">Never</dd>
           </div>
           <div>
+            <span class="stat-icon stat-icon-count" aria-hidden="true"></span>
             <dt>Refreshes</dt>
             <dd id="refresh-count">0</dd>
           </div>
           <div>
+            <span class="stat-icon stat-icon-reset" aria-hidden="true"></span>
             <dt>Last reset</dt>
             <dd id="reset-message">Not started</dd>
           </div>
@@ -86,6 +92,7 @@
           <h2 id="safety-title">Safety</h2>
         </div>
         <label class="setting-row">
+          <span class="setting-icon setting-icon-smart" aria-hidden="true"></span>
           <span>
             <strong>Smart mode</strong>
             <small>Refresh only after a full interval without clicks.</small>
@@ -93,6 +100,7 @@
           <input id="smart-mode" type="checkbox" checked>
         </label>
         <label class="setting-row">
+          <span class="setting-icon setting-icon-tab" aria-hidden="true"></span>
           <span>
             <strong>Refresh when</strong>
             <small>Control whether background tabs can refresh.</small>
@@ -103,6 +111,7 @@
           </select>
         </label>
         <label class="setting-row">
+          <span class="setting-icon setting-icon-type" aria-hidden="true"></span>
           <span>
             <strong>Typing protection</strong>
             <small>Postpone refresh while editing or unsaved input is detected.</small>
