@@ -26,7 +26,7 @@
 }
 
 body {
-  width: 380px;
+  width: 392px;
   max-height: 640px;
   margin: 0;
   overflow-y: auto;
@@ -45,7 +45,7 @@ select {
 
 .popup-shell {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   padding: 14px;
 }
 
@@ -54,7 +54,7 @@ select {
   grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 2px 2px 4px;
+  padding: 0 0 2px;
 }
 
 .brand-icon {
@@ -152,24 +152,13 @@ h1 {
   gap: 10px;
 }
 
-.control-group,
-.settings-group,
-.site-panel,
-.history-panel,
-.active-tabs-panel,
-.status-card {
-  border: 1px solid var(--line-soft);
-  border-radius: 16px;
-  background: var(--surface);
-}
-
-.control-group,
 .settings-group,
 .site-panel,
 .history-panel,
 .active-tabs-panel {
-  padding: 13px;
-  box-shadow: var(--shadow-soft);
+  padding: 12px 4px 10px;
+  border-top: 1px solid var(--line-soft);
+  background: transparent;
 }
 
 .section-row {
@@ -194,7 +183,7 @@ h2 {
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--surface-muted);
+  background: #eef3fb;
 }
 
 .interval-option {
@@ -349,8 +338,12 @@ h2 {
 .status-card {
   position: relative;
   display: grid;
-  gap: 12px;
+  gap: 13px;
   padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #ffffff 68%, #fbfcff 100%);
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -359,8 +352,21 @@ h2 {
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 3px;
+  height: 4px;
   background: var(--ring-color);
+}
+
+.status-card .brand {
+  position: relative;
+  z-index: 1;
+}
+
+.status-card .control-group {
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: #f8fafd;
+  box-shadow: none;
 }
 
 .status-card.is-active {
@@ -384,8 +390,8 @@ h2 {
 .countdown-ring {
   position: relative;
   display: grid;
-  width: 142px;
-  height: 142px;
+  width: 148px;
+  height: 148px;
   margin: 0 auto;
   border: 0;
   border-radius: 50%;
@@ -419,8 +425,8 @@ h2 {
 .progress-ring {
   position: absolute;
   inset: 0;
-  width: 142px;
-  height: 142px;
+  width: 148px;
+  height: 148px;
   transform: rotate(-90deg);
 }
 
@@ -492,13 +498,13 @@ h2 {
   margin: 0;
   overflow: hidden;
   border: 1px solid var(--line-soft);
-  border-radius: 14px;
-  background: #fbfcff;
+  border-radius: 16px;
+  background: #f8fafd;
 }
 
 .stats-list div {
   min-width: 0;
-  padding: 9px 10px;
+  padding: 8px 10px;
 }
 
 .stats-list div:nth-child(odd) {
@@ -564,7 +570,7 @@ h2 {
 .history-list {
   display: grid;
   gap: 0;
-  max-height: 76px;
+  max-height: 62px;
   margin: 0;
   padding: 0;
   overflow: auto;
@@ -613,11 +619,11 @@ h2 {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  min-height: 46px;
-  padding: 9px;
-  border: 1px solid var(--line-soft);
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid transparent;
   border-radius: 12px;
-  background: #fbfcff;
+  background: #f8fafd;
   transition: background 160ms var(--ease), border-color 160ms var(--ease);
 }
 
@@ -691,9 +697,10 @@ h2 {
   position: sticky;
   bottom: 0;
   margin: 0 -14px -14px;
-  padding: 12px 14px 14px;
-  border-top: 1px solid rgba(223, 227, 235, 0.74);
-  background: rgba(248, 250, 253, 0.94);
+  padding: 10px 14px 14px;
+  border-top: 1px solid rgba(223, 227, 235, 0.72);
+  background:
+    linear-gradient(180deg, rgba(248, 250, 253, 0.72), rgba(248, 250, 253, 0.98) 28%);
 }
 
 .primary-button {

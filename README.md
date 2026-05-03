@@ -109,11 +109,12 @@ The toolbar badge shows a compact countdown while refresh is active:
 
 ## Popup UI
 
-The popup uses a modern Google/Chrome-style Material surface: clean white
-panels, rounded segmented controls, a prominent status surface, a sticky primary
-action area, and an SVG progress ring around the countdown. The ring follows
-the current refresh status: blue for active, gray for paused, orange for skipped
-or postponed, and red for errors.
+The popup uses a product-first Google/Chrome-style Material surface: the header,
+countdown ring, interval selector, status text, and session stats live in one
+command surface. Secondary controls are quieter grouped rows, while the primary
+action remains available in a light sticky action area. The ring follows the
+current refresh status: blue for active, gray for paused, orange for skipped or
+postponed, and red for errors.
 
 ## Limitations
 

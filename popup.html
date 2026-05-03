@@ -8,16 +8,16 @@
   </head>
   <body>
     <main class="popup-shell">
-      <header class="brand">
-        <img class="brand-icon" src="icons/icon_32.png" alt="" width="32" height="32">
-        <div>
-          <h1>Refresh</h1>
-          <p>Smart tab refresh controls</p>
-        </div>
-        <span id="tab-state" class="state-label">Inactive</span>
-      </header>
-
       <section id="status-panel" class="status-card" aria-label="Refresh status">
+        <header class="brand">
+          <img class="brand-icon" src="icons/icon_32.png" alt="" width="32" height="32">
+          <div>
+            <h1>Refresh</h1>
+            <p>Smart tab refresh controls</p>
+          </div>
+          <span id="tab-state" class="state-label">Inactive</span>
+        </header>
+
         <button id="ring-action" class="countdown-ring" type="button" aria-label="Start refresh">
           <svg class="progress-ring" viewBox="0 0 120 120" focusable="false">
             <circle class="progress-track" cx="60" cy="60" r="52" pathLength="100"></circle>
@@ -29,6 +29,38 @@
           </div>
         </button>
         <p id="status-message" aria-live="polite" aria-atomic="true">Choose an interval and start refresh for this tab.</p>
+        <section class="control-group" aria-labelledby="interval-title">
+          <div class="section-row">
+            <h2 id="interval-title">Interval</h2>
+          </div>
+
+          <div class="interval-options" role="radiogroup" aria-label="Refresh interval">
+            <label class="interval-option">
+              <input type="radio" name="interval" value="60" checked>
+              <span>1 min</span>
+            </label>
+            <label class="interval-option">
+              <input type="radio" name="interval" value="300">
+              <span>5 min</span>
+            </label>
+            <label class="interval-option">
+              <input type="radio" name="interval" value="600">
+              <span>10 min</span>
+            </label>
+            <label class="interval-option">
+              <input type="radio" name="interval" value="custom">
+              <span>Custom</span>
+            </label>
+          </div>
+
+          <label id="custom-field" class="custom-field" for="custom-minutes">
+            <span>Custom time</span>
+            <div class="custom-input-row">
+              <input id="custom-minutes" type="number" min="1" max="999" step="0.5" inputmode="decimal" value="15">
+              <span>minutes</span>
+            </div>
+          </label>
+        </section>
         <dl class="stats-list">
           <div>
             <dt>Next at</dt>
@@ -47,39 +79,6 @@
             <dd id="reset-message">Not started</dd>
           </div>
         </dl>
-      </section>
-
-      <section class="control-group" aria-labelledby="interval-title">
-        <div class="section-row">
-          <h2 id="interval-title">Interval</h2>
-        </div>
-
-        <div class="interval-options" role="radiogroup" aria-label="Refresh interval">
-          <label class="interval-option">
-            <input type="radio" name="interval" value="60" checked>
-            <span>1 min</span>
-          </label>
-          <label class="interval-option">
-            <input type="radio" name="interval" value="300">
-            <span>5 min</span>
-          </label>
-          <label class="interval-option">
-            <input type="radio" name="interval" value="600">
-            <span>10 min</span>
-          </label>
-          <label class="interval-option">
-            <input type="radio" name="interval" value="custom">
-            <span>Custom</span>
-          </label>
-        </div>
-
-        <label id="custom-field" class="custom-field" for="custom-minutes">
-          <span>Custom time</span>
-          <div class="custom-input-row">
-            <input id="custom-minutes" type="number" min="1" max="999" step="0.5" inputmode="decimal" value="15">
-            <span>minutes</span>
-          </div>
-        </label>
       </section>
 
       <section class="settings-group" aria-labelledby="safety-title">

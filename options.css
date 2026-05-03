@@ -25,7 +25,7 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   background:
     linear-gradient(180deg, #ffffff 0%, var(--bg) 34%, #f6f9ff 100%);
   color: var(--text);
@@ -39,8 +39,8 @@ button {
 
 .options-shell {
   display: grid;
-  gap: 16px;
-  width: min(860px, calc(100% - 32px));
+  gap: 14px;
+  width: min(900px, calc(100% - 32px));
   margin: 0 auto;
   padding: 32px 0;
 }
@@ -49,7 +49,7 @@ button {
 .info-card,
 .rules-card {
   border: 1px solid var(--line-soft);
-  border-radius: 18px;
+  border-radius: 20px;
   background: var(--surface);
   box-shadow: var(--shadow-soft);
 }
@@ -98,6 +98,11 @@ h1 {
   display: grid;
   gap: 14px;
   padding: 18px;
+}
+
+.rules-card {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #ffffff 70%, #fbfcff 100%);
 }
 
 h2 {
@@ -152,7 +157,7 @@ h2 {
 
 .rules-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .rule-item {
@@ -160,10 +165,10 @@ h2 {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
-  padding: 14px;
-  border: 1px solid var(--line-soft);
+  padding: 14px 12px;
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: #fbfcff;
+  background: #f8fafd;
   transition: background 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease);
 }
 
@@ -216,7 +221,7 @@ h2 {
 }
 
 .empty-state {
-  padding: 18px;
+  padding: 22px 18px;
   border: 1px dashed var(--line);
   border-radius: 14px;
   background: #fbfcff;
