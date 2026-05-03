@@ -2,16 +2,21 @@
   color-scheme: light;
   --bg: #f8fafd;
   --surface: #ffffff;
-  --surface-hover: #f8fafd;
+  --surface-hover: #f4f8ff;
+  --surface-muted: #f1f4f8;
   --text: #202124;
   --muted: #5f6368;
   --subtle: #80868b;
-  --line: #dadce0;
-  --line-soft: #e8eaed;
+  --line: #dfe3eb;
+  --line-soft: #edf1f7;
   --blue: #1a73e8;
+  --blue-hover: #155fc0;
   --blue-bg: #e8f0fe;
   --red: #d93025;
   --red-bg: #fce8e6;
+  --shadow: 0 10px 28px rgba(60, 64, 67, 0.08);
+  --shadow-soft: 0 3px 10px rgba(60, 64, 67, 0.06);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -21,7 +26,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    linear-gradient(180deg, #ffffff 0%, var(--bg) 34%, #f6f9ff 100%);
   color: var(--text);
   font-family: "Google Sans", Roboto, Arial, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -43,20 +49,23 @@ button {
 .info-card,
 .rules-card {
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-radius: 18px;
   background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .options-header {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
+  grid-template-columns: 54px minmax(0, 1fr);
   align-items: center;
   gap: 16px;
   padding: 22px;
+  box-shadow: var(--shadow);
 }
 
 .options-header img {
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-soft);
 }
 
 h1,
@@ -66,9 +75,10 @@ p {
 }
 
 h1 {
+  color: var(--text);
   font-size: 24px;
-  font-weight: 500;
-  line-height: 1.2;
+  font-weight: 600;
+  line-height: 1.18;
 }
 
 .options-header p,
@@ -80,7 +90,7 @@ h1 {
 }
 
 .options-header p {
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 .info-card,
@@ -93,7 +103,7 @@ h1 {
 h2 {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 650;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -109,20 +119,25 @@ h2 {
 .rule-action {
   min-height: 34px;
   border: 1px solid var(--line);
-  border-radius: 17px;
+  border-radius: 999px;
   background: var(--surface);
   color: var(--blue);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   padding: 0 14px;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease);
 }
 
 #reload-rules:hover,
 .rule-action:hover {
   background: var(--blue-bg);
-  border-color: var(--blue);
+  border-color: #c7d7fb;
+}
+
+#reload-rules:active,
+.rule-action:active {
+  transform: translateY(1px) scale(0.99);
 }
 
 .rule-action.is-danger {
@@ -132,7 +147,7 @@ h2 {
 .rule-action.is-danger:hover {
   background: var(--red-bg);
   color: var(--red);
-  border-color: rgba(217, 48, 37, 0.35);
+  border-color: rgba(217, 48, 37, 0.24);
 }
 
 .rules-list {
@@ -147,12 +162,14 @@ h2 {
   gap: 16px;
   padding: 14px;
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: var(--surface);
+  border-radius: 14px;
+  background: #fbfcff;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease);
 }
 
 .rule-item:hover {
   background: var(--surface-hover);
+  border-color: #d8e0ec;
 }
 
 .rule-title {
@@ -166,7 +183,7 @@ h2 {
   overflow: hidden;
   color: var(--text);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -178,7 +195,7 @@ h2 {
   background: var(--blue-bg);
   color: var(--blue);
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 650;
   line-height: 1;
 }
 
@@ -201,7 +218,8 @@ h2 {
 .empty-state {
   padding: 18px;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: 14px;
+  background: #fbfcff;
   color: var(--subtle);
   text-align: center;
 }
@@ -212,11 +230,26 @@ button:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .options-shell {
+    width: min(100% - 24px, 860px);
+    padding: 20px 0;
+  }
+
+  .options-header,
   .rule-item {
     grid-template-columns: 1fr;
   }
 
   .rule-actions {
     justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
   }
 }
