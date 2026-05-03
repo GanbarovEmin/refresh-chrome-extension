@@ -27,7 +27,14 @@
           <div class="countdown-core">
             <span class="status-kicker">Next refresh</span>
             <strong id="countdown">Ready</strong>
-            <span class="ring-glyph" aria-hidden="true"></span>
+            <span class="ring-glyph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M20 11a8 8 0 0 0-14.5-4.6"></path>
+                <path d="M4 5.5v5h5"></path>
+                <path d="M4 13a8 8 0 0 0 14.5 4.6"></path>
+                <path d="M20 18.5v-5h-5"></path>
+              </svg>
+            </span>
           </div>
         </button>
         <p id="status-message" aria-live="polite" aria-atomic="true">Choose an interval and start refresh for this tab.</p>
@@ -65,22 +72,47 @@
         </section>
         <dl class="stats-list">
           <div>
-            <span class="stat-icon stat-icon-next" aria-hidden="true"></span>
+            <span class="stat-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="M12 7.5v5l3.2 2"></path>
+              </svg>
+            </span>
             <dt>Next at</dt>
             <dd id="next-refresh-at">Not scheduled</dd>
           </div>
           <div>
-            <span class="stat-icon stat-icon-refresh" aria-hidden="true"></span>
+            <span class="stat-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M20 11a8 8 0 0 0-14.5-4.6"></path>
+                <path d="M4 5.5v5h5"></path>
+                <path d="M4 13a8 8 0 0 0 14.5 4.6"></path>
+                <path d="M20 18.5v-5h-5"></path>
+              </svg>
+            </span>
             <dt>Last refresh</dt>
             <dd id="last-refresh">Never</dd>
           </div>
           <div>
-            <span class="stat-icon stat-icon-count" aria-hidden="true"></span>
+            <span class="stat-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M6 18v-4"></path>
+                <path d="M12 18V9"></path>
+                <path d="M18 18V6"></path>
+              </svg>
+            </span>
             <dt>Refreshes</dt>
             <dd id="refresh-count">0</dd>
           </div>
           <div>
-            <span class="stat-icon stat-icon-reset" aria-hidden="true"></span>
+            <span class="stat-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M5 12h12"></path>
+                <path d="M13 8l4 4-4 4"></path>
+                <path d="M5 6h14"></path>
+                <path d="M5 18h14"></path>
+              </svg>
+            </span>
             <dt>Last reset</dt>
             <dd id="reset-message">Not started</dd>
           </div>
@@ -92,7 +124,13 @@
           <h2 id="safety-title">Safety</h2>
         </div>
         <label class="setting-row">
-          <span class="setting-icon setting-icon-smart" aria-hidden="true"></span>
+          <span class="setting-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M12 3.5 19 6v5.2c0 4.1-2.7 7.8-7 9.3-4.3-1.5-7-5.2-7-9.3V6l7-2.5Z"></path>
+              <path d="M12 8v7"></path>
+              <path d="M9.5 11.5h5"></path>
+            </svg>
+          </span>
           <span>
             <strong>Smart mode</strong>
             <small>Refresh only after a full interval without clicks.</small>
@@ -100,7 +138,12 @@
           <input id="smart-mode" type="checkbox" checked>
         </label>
         <label class="setting-row">
-          <span class="setting-icon setting-icon-tab" aria-hidden="true"></span>
+          <span class="setting-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <rect x="4" y="5" width="16" height="13" rx="2"></rect>
+              <path d="M4 9h16"></path>
+            </svg>
+          </span>
           <span>
             <strong>Refresh when</strong>
             <small>Control whether background tabs can refresh.</small>
@@ -111,7 +154,16 @@
           </select>
         </label>
         <label class="setting-row">
-          <span class="setting-icon setting-icon-type" aria-hidden="true"></span>
+          <span class="setting-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <rect x="4" y="6" width="16" height="12" rx="2"></rect>
+              <path d="M7 10h.01"></path>
+              <path d="M10 10h.01"></path>
+              <path d="M13 10h.01"></path>
+              <path d="M16 10h.01"></path>
+              <path d="M8 14h8"></path>
+            </svg>
+          </span>
           <span>
             <strong>Typing protection</strong>
             <small>Postpone refresh while editing or unsaved input is detected.</small>

@@ -366,57 +366,6 @@ h2 {
   place-items: center;
 }
 
-.setting-icon::before,
-.setting-icon::after {
-  content: "";
-  position: absolute;
-}
-
-.setting-icon-smart::before {
-  width: 17px;
-  height: 18px;
-  border: 2px solid currentColor;
-  border-radius: 4px 4px 8px 8px;
-  clip-path: polygon(50% 0, 100% 20%, 100% 58%, 50% 100%, 0 58%, 0 20%);
-}
-
-.setting-icon-smart::after {
-  width: 2px;
-  height: 12px;
-  background: currentColor;
-  border-radius: 999px;
-}
-
-.setting-icon-tab::before {
-  width: 19px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-radius: 3px;
-}
-
-.setting-icon-tab::after {
-  width: 19px;
-  height: 2px;
-  margin-top: -5px;
-  background: currentColor;
-  opacity: 0.78;
-}
-
-.setting-icon-type::before {
-  width: 20px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-radius: 4px;
-}
-
-.setting-icon-type::after {
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: -5px -3px 0 currentColor, 0 -3px 0 currentColor, 5px -3px 0 currentColor, -5px 3px 0 currentColor, 0 3px 0 currentColor, 5px 3px 0 currentColor;
-}
-
 .setting-row input[type="checkbox"] {
   position: relative;
   width: 42px;
@@ -614,30 +563,26 @@ h2 {
 
 .ring-glyph {
   position: relative;
+  display: grid;
   width: 23px;
   height: 23px;
   color: var(--ring-color);
+  place-items: center;
 }
 
-.ring-glyph::before {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border: 2px solid currentColor;
-  border-left-color: transparent;
-  border-radius: 50%;
-}
-
-.ring-glyph::after {
-  content: "";
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  width: 8px;
-  height: 8px;
-  border-top: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  transform: rotate(35deg);
+.ring-glyph svg,
+.stat-icon svg,
+.setting-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
 #status-message {
@@ -705,83 +650,12 @@ h2 {
 }
 
 .stat-icon {
-  position: relative;
+  display: grid;
   grid-row: 1 / span 2;
   width: 24px;
   height: 24px;
   color: #4f5664;
-}
-
-.stat-icon::before,
-.stat-icon::after {
-  content: "";
-  position: absolute;
-}
-
-.stat-icon-next::before {
-  inset: 3px;
-  border: 2px solid currentColor;
-  border-radius: 50%;
-}
-
-.stat-icon-next::after {
-  left: 11px;
-  top: 6px;
-  width: 6px;
-  height: 8px;
-  border-left: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-}
-
-.stat-icon-refresh::before {
-  inset: 4px;
-  border: 2px solid currentColor;
-  border-left-color: transparent;
-  border-radius: 50%;
-}
-
-.stat-icon-refresh::after {
-  top: 3px;
-  right: 3px;
-  width: 7px;
-  height: 7px;
-  border-top: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  transform: rotate(36deg);
-}
-
-.stat-icon-count::before,
-.stat-icon-count::after {
-  bottom: 3px;
-  width: 3px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.stat-icon-count::before {
-  left: 5px;
-  height: 8px;
-  box-shadow: 7px -5px 0 currentColor, 14px -10px 0 currentColor;
-}
-
-.stat-icon-reset::before {
-  left: 4px;
-  top: 4px;
-  width: 14px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-radius: 3px;
-  transform: rotate(45deg);
-}
-
-.stat-icon-reset::after {
-  left: 6px;
-  top: 6px;
-  width: 8px;
-  height: 8px;
-  border-left: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg);
+  place-items: center;
 }
 
 .site-hostname,
