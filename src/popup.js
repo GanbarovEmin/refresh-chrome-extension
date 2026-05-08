@@ -9,6 +9,7 @@ const toggleButton = document.querySelector("#toggle-refresh");
 const resetButton = document.querySelector("#reset-timer");
 const refreshNowButton = document.querySelector("#refresh-now");
 const stopButton = document.querySelector("#stop-refresh");
+const headerOptionsButton = document.querySelector("#header-options");
 const smartModeInput = document.querySelector("#smart-mode");
 const activeTabModeInput = document.querySelector("#active-tab-mode");
 const typingProtectionInput = document.querySelector("#typing-protection");
@@ -34,6 +35,7 @@ const MIN_CUSTOM_MINUTES = 1;
 const MAX_CUSTOM_MINUTES = 999;
 const PRESET_SECONDS = [60, 300, 600];
 const WORKSPACE_REFRESH_MS = 5000;
+const STATE_REFRESH_MS = 5000;
 
 let activeTab = null;
 let currentSession = null;
@@ -41,6 +43,7 @@ let siteContext = null;
 let activeSessions = [];
 let countdownTimer = null;
 let lastWorkspaceRefreshAt = 0;
+let lastStateRefreshAt = 0;
 let isBusy = false;
 
 init().catch((error) => {
@@ -97,6 +100,10 @@ async function init() {
     chrome.runtime.openOptionsPage();
   });
 
+  headerOptionsButton.addEventListener("click", () => {
+    chrome.runtime.openOptionsPage();
+  });
+
   activeTabsList.addEventListener("click", (event) => {
     const button = event.target instanceof Element
       ? event.target.closest("button[data-action][data-tab-id]")
@@ -141,11 +148,9 @@ async function init() {
       return;
     }
 
-    refreshState()
-      .then(() => refreshWorkspaceState())
-      .catch((error) => {
-        renderError(getErrorMessage(error));
-      });
+    tickPopupState().catch((error) => {
+      renderError(getErrorMessage(error));
+    });
   }, 1000);
 }
 
@@ -170,7 +175,32 @@ async function refreshState() {
   }
 
   currentSession = response.session;
+  lastStateRefreshAt = Date.now();
   renderState(currentSession);
+}
+
+async function tickPopupState() {
+  const now = Date.now();
+
+  if (shouldSyncState(now)) {
+    await refreshState();
+  } else {
+    renderState(currentSession);
+  }
+
+  await refreshWorkspaceState();
+}
+
+function shouldSyncState(now) {
+  if (!lastStateRefreshAt || now - lastStateRefreshAt >= STATE_REFRESH_MS) {
+    return true;
+  }
+
+  if (!currentSession || !currentSession.enabled || currentSession.paused) {
+    return false;
+  }
+
+  return getSessionRemainingMs(currentSession) <= 0;
 }
 
 async function refreshWorkspaceState(options = {}) {
@@ -488,7 +518,7 @@ function renderState(session) {
     refreshCountValue.textContent = "0";
     renderHistory(session.history);
     setSessionActionsDisabled(true);
-    toggleButton.textContent = "Start refresh";
+    setPrimaryButtonLabel("Start refresh");
     syncRingActionState();
     return;
   }
@@ -506,7 +536,7 @@ function renderState(session) {
     refreshCountValue.textContent = "0";
     renderHistory([]);
     setSessionActionsDisabled(true);
-    toggleButton.textContent = "Start refresh";
+    setPrimaryButtonLabel("Start refresh");
     syncRingActionState();
     return;
   }
@@ -525,25 +555,25 @@ function renderState(session) {
     stateLabel.textContent = "Paused";
     stateLabel.classList.add("is-paused");
     statusMessage.textContent = `Paused with ${formatRemainingTime(remainingMs)} remaining. Resume keeps the saved countdown.`;
-    toggleButton.textContent = "Resume";
+    setPrimaryButtonLabel("Resume");
   } else if (session.skipReason === "inactive") {
     setStatusVisualState("skipped");
     stateLabel.textContent = "Skipped";
     stateLabel.classList.add("is-skipped");
     statusMessage.textContent = "Skipped because tab is inactive.";
-    toggleButton.textContent = "Pause";
+    setPrimaryButtonLabel("Pause");
   } else if (session.skipReason === "typing") {
     setStatusVisualState("postponed");
     stateLabel.textContent = "Waiting";
     stateLabel.classList.add("is-postponed");
     statusMessage.textContent = "Typing detected. Refresh postponed.";
-    toggleButton.textContent = "Pause";
+    setPrimaryButtonLabel("Pause");
   } else if (recentlyClicked) {
     setStatusVisualState("waiting");
     stateLabel.textContent = "Waiting";
     stateLabel.classList.add("is-waiting");
     statusMessage.textContent = `Click detected. Timer restarted for ${intervalLabel}.`;
-    toggleButton.textContent = "Pause";
+    setPrimaryButtonLabel("Pause");
   } else {
     setStatusVisualState("active");
     stateLabel.textContent = "Active";
@@ -551,7 +581,7 @@ function renderState(session) {
     statusMessage.textContent = session.smartMode
       ? `Running every ${intervalLabel}. Click inside the page resets the timer.`
       : `Running every ${intervalLabel}. Smart mode is off; clicks are logged only.`;
-    toggleButton.textContent = "Pause";
+    setPrimaryButtonLabel("Pause");
   }
 
   countdown.textContent = formatRemainingTime(remainingMs);
@@ -581,7 +611,7 @@ function renderValidationError(message) {
   renderHistory([]);
   setSessionActionsDisabled(true);
   customMinutesInput.setAttribute("aria-invalid", "true");
-  toggleButton.textContent = "Start refresh";
+  setPrimaryButtonLabel("Start refresh");
   syncRingActionState();
 }
 
@@ -795,6 +825,7 @@ function renderSiteContext() {
   useSiteProfileButton.disabled = isBusy || !supported || !hasSavedProfile || hasRunningSession || isBlocked;
   neverRunSiteButton.disabled = isBusy || !supported || isBlocked;
   openOptionsButton.disabled = isBusy;
+  headerOptionsButton.disabled = isBusy;
 
   if (isBlocked && !hasRunningSession) {
     renderDomainBlockedStatus();
@@ -818,7 +849,7 @@ function renderDomainBlockedStatus() {
   refreshCountValue.textContent = "0";
   renderHistory([]);
   setSessionActionsDisabled(true);
-  toggleButton.textContent = "Start refresh";
+  setPrimaryButtonLabel("Start refresh");
   syncRingActionState();
 }
 
@@ -992,6 +1023,7 @@ function setBusy(nextBusy) {
   stopButton.disabled = nextBusy || !(currentSession && currentSession.enabled);
   setSafetyControlsDisabled(nextBusy);
   ringActionButton.disabled = nextBusy;
+  headerOptionsButton.disabled = nextBusy;
 
   if (siteContext) {
     renderSiteContext();
@@ -1031,15 +1063,36 @@ function renderError(message) {
   refreshCountValue.textContent = "0";
   renderHistory([]);
   setSessionActionsDisabled(true);
-  toggleButton.textContent = "Start refresh";
+  setPrimaryButtonLabel("Start refresh");
   syncRingActionState();
 }
 
 function syncRingActionState() {
-  const label = toggleButton.textContent.trim() || "Start refresh";
+  const label = getPrimaryButtonLabel();
   ringActionButton.setAttribute("aria-label", label);
   ringActionButton.title = label;
   ringActionButton.disabled = Boolean(toggleButton.disabled);
+}
+
+function setPrimaryButtonLabel(label) {
+  const labelNode = toggleButton.querySelector(".button-label");
+
+  if (labelNode) {
+    labelNode.textContent = label;
+    return;
+  }
+
+  toggleButton.textContent = label;
+}
+
+function getPrimaryButtonLabel() {
+  const labelNode = toggleButton.querySelector(".button-label");
+
+  if (labelNode && labelNode.textContent.trim()) {
+    return labelNode.textContent.trim();
+  }
+
+  return toggleButton.textContent.trim() || "Start refresh";
 }
 
 function getErrorMessage(error) {

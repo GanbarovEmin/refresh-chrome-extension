@@ -15,6 +15,7 @@
   let lastGuardSentAt = 0;
   let hasDirtyInput = false;
   const initialEditableValues = new WeakMap();
+  const dirtyEditables = new Set();
 
   function sendRuntimeMessage(payload) {
     try {
@@ -96,12 +97,35 @@
     const initialValue = initialEditableValues.get(element);
     const currentValue = getEditableValue(element);
 
-    return currentValue !== initialValue && currentValue !== "";
+    return currentValue !== initialValue;
+  }
+
+  function updateEditableDirtyFlag(element) {
+    if (!isEditableElement(element)) {
+      return;
+    }
+
+    if (isDirtyEditable(element)) {
+      dirtyEditables.add(element);
+    } else {
+      dirtyEditables.delete(element);
+    }
+
+    hasDirtyInput = dirtyEditables.size > 0;
   }
 
   function updateDirtyState() {
     const editables = document.querySelectorAll(EDITABLE_SELECTOR);
-    hasDirtyInput = [...editables].some((element) => isDirtyEditable(element));
+
+    dirtyEditables.clear();
+
+    for (const element of editables) {
+      if (isDirtyEditable(element)) {
+        dirtyEditables.add(element);
+      }
+    }
+
+    hasDirtyInput = dirtyEditables.size > 0;
   }
 
   function snapshotCurrentEditableValues() {
@@ -112,6 +136,8 @@
         initialEditableValues.set(element, getEditableValue(element));
       }
     }
+
+    dirtyEditables.clear();
   }
 
   function getGuardState(reason) {
@@ -141,7 +167,7 @@
   function reportGuardInput(event) {
     if (isEditableElement(event.target)) {
       rememberInitialValue(event.target);
-      updateDirtyState();
+      updateEditableDirtyFlag(event.target);
       sendGuardState(event.type);
     }
   }

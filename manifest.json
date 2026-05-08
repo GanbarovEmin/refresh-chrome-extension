@@ -28,6 +28,7 @@
     "alarms",
     "scripting",
     "storage",
-    "tabs"
+    "tabs",
+    "windows"
   ]
 }

@@ -1,5 +1,9 @@
 const rulesList = document.querySelector("#rules-list");
 const reloadButton = document.querySelector("#reload-rules");
+const searchInput = document.querySelector("#rules-search");
+const rulesSummary = document.querySelector("#rules-summary");
+
+let allRules = [];
 
 init().catch((error) => {
   renderError(getErrorMessage(error));
@@ -10,6 +14,10 @@ async function init() {
     loadRules().catch((error) => {
       renderError(getErrorMessage(error));
     });
+  });
+
+  searchInput.addEventListener("input", () => {
+    renderRules(getFilteredRules());
   });
 
   rulesList.addEventListener("click", (event) => {
@@ -36,16 +44,18 @@ async function loadRules() {
     throw new Error(response.error);
   }
 
-  renderRules(response.rules || []);
+  allRules = Array.isArray(response.rules) ? response.rules : [];
+  renderRules(getFilteredRules());
 }
 
 function renderRules(rules) {
   rulesList.textContent = "";
+  renderRulesSummary(rules.length);
 
   if (!rules.length) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "No domain rules yet.";
+    empty.textContent = allRules.length ? "No matching domain rules." : "No domain rules yet.";
     rulesList.append(empty);
     return;
   }
@@ -60,7 +70,7 @@ function renderRules(rules) {
     const actions = document.createElement("div");
     const deleteButton = document.createElement("button");
 
-    item.className = "rule-item";
+    item.className = rule.type === "never-run" ? "rule-item is-blocked" : "rule-item";
     title.className = "rule-title";
     badge.className = rule.type === "never-run" ? "rule-badge is-blocked" : "rule-badge";
     actions.className = "rule-actions";
@@ -91,6 +101,23 @@ function renderRules(rules) {
     item.append(content, actions);
     rulesList.append(item);
   }
+}
+
+function getFilteredRules() {
+  const query = searchInput.value.trim().toLowerCase();
+
+  if (!query) {
+    return allRules;
+  }
+
+  return allRules.filter((rule) => String(rule.hostname || "").toLowerCase().includes(query));
+}
+
+function renderRulesSummary(visibleCount) {
+  const savedCount = allRules.filter((rule) => rule.type === "saved-profile").length;
+  const blockedCount = allRules.filter((rule) => rule.type === "never-run").length;
+
+  rulesSummary.textContent = `${visibleCount} shown · ${savedCount} saved · ${blockedCount} blocked`;
 }
 
 async function handleRuleAction(action, hostname) {
@@ -164,6 +191,7 @@ function formatTimestamp(timestamp) {
 
 function renderError(message) {
   rulesList.textContent = "";
+  rulesSummary.textContent = "Could not load rules.";
 
   const error = document.createElement("p");
   error.className = "empty-state";

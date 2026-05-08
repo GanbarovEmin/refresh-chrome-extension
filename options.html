@@ -26,8 +26,27 @@
 
       <section class="rules-card" aria-labelledby="rules-title">
         <div class="section-row">
-          <h2 id="rules-title">Domain rules</h2>
-          <button id="reload-rules" type="button">Refresh</button>
+          <div>
+            <h2 id="rules-title">Domain rules</h2>
+            <p id="rules-summary" class="rules-summary">Loading rules...</p>
+          </div>
+          <button id="reload-rules" type="button" aria-label="Refresh rules">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M20 11a8 8 0 0 0-14.5-4.6"></path>
+              <path d="M4 5.5v5h5"></path>
+              <path d="M4 13a8 8 0 0 0 14.5 4.6"></path>
+              <path d="M20 18.5v-5h-5"></path>
+            </svg>
+            <span>Refresh</span>
+          </button>
+        </div>
+        <label class="rules-search" for="rules-search">
+          <span>Search domains</span>
+          <input id="rules-search" type="search" autocomplete="off" placeholder="example.com">
+        </label>
+        <div class="rules-toolbar" aria-hidden="true">
+          <span>Saved profiles</span>
+          <span>Blocked domains</span>
         </div>
         <div id="rules-list" class="rules-list" aria-live="polite">
           <p class="empty-state">No domain rules yet.</p>
