@@ -151,3 +151,11 @@ test-page.html      Local manual QA page
 This project is intentionally build-free. Edit the files directly, reload the
 extension from `chrome://extensions`, and test it on a normal web page or local
 HTML file.
+
+Render icons from the source SVG, then run the local QA guard before loading or
+packaging the extension:
+
+```bash
+bash scripts/render_icons.sh
+node scripts/qa_extension.js
+```

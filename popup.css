@@ -146,22 +146,28 @@ h1 {
   background: var(--red);
 }
 
-.brand-menu {
-  position: relative;
-  display: inline-grid;
-  width: 24px;
+.header-options-button {
+  display: grid;
+  width: 32px;
   height: 32px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
   place-items: center;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease), transform 160ms var(--ease);
 }
 
-.brand-menu::before {
-  content: "";
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--muted);
-  box-shadow: 0 -8px 0 var(--muted), 0 8px 0 var(--muted);
-  opacity: 0.9;
+.header-options-button:hover {
+  border-color: var(--line);
+  background: var(--surface-hover);
+  color: var(--blue);
+}
+
+.header-options-button:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 .control-group,
@@ -266,7 +272,8 @@ h2 {
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 .countdown-ring:focus-visible,
-.active-tab-action:focus-visible {
+.active-tab-action:focus-visible,
+.header-options-button:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
@@ -573,6 +580,7 @@ h2 {
 .ring-glyph svg,
 .stat-icon svg,
 .setting-icon svg,
+.header-options-button svg,
 .button-icon {
   display: block;
   width: 100%;
@@ -886,19 +894,23 @@ h2 {
 }
 
 .action-group {
-  position: sticky;
-  bottom: 0;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 2fr);
+  position: static;
+  grid-template-columns: 1fr;
   align-items: center;
-  margin: 0 -12px -12px;
-  padding: 12px;
-  border-top: 1px solid rgba(223, 227, 235, 0.72);
-  background:
-    linear-gradient(180deg, rgba(248, 250, 253, 0.72), rgba(248, 250, 253, 0.99) 32%);
-  backdrop-filter: blur(10px);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .primary-button {
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   min-height: 44px;
   border: 0;
   border-radius: 12px;
@@ -909,6 +921,12 @@ h2 {
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(26, 115, 232, 0.26);
   transition: background 160ms var(--ease), box-shadow 160ms var(--ease), transform 160ms var(--ease);
+}
+
+.primary-button .button-icon {
+  width: 19px;
+  height: 19px;
+  color: currentColor;
 }
 
 .primary-button:hover {
@@ -929,28 +947,43 @@ h2 {
 
 .secondary-actions {
   display: grid;
-  grid-template-columns: minmax(0, 0.96fr) minmax(0, 1.25fr) minmax(48px, 0.58fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .secondary-button {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  gap: 6px;
+  min-height: 38px;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 0 10px;
   background: var(--surface);
   color: var(--blue);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: background 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease), transform 160ms var(--ease);
+}
+
+.secondary-button .button-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+}
+
+.secondary-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .secondary-button:hover {

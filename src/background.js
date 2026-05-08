@@ -9,6 +9,7 @@ const MAX_HISTORY_ITEMS = 10;
 const SUPPORTED_PROTOCOLS = ["http:", "https:", "file:"];
 
 let badgeTimerId = null;
+const lastBadgeByTab = new Map();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
@@ -889,37 +890,43 @@ async function updateBadgeForSession(session) {
   }
 
   const badgeState = getBadgeState(session);
+  await setBadgeVisual(session.tabId, badgeState.text, badgeState.color);
+}
+
+async function setBadgeVisual(tabId, text, color) {
+  const cacheKey = `${text}|${color}`;
+
+  if (lastBadgeByTab.get(tabId) === cacheKey) {
+    return;
+  }
+
+  lastBadgeByTab.set(tabId, cacheKey);
 
   await chrome.action.setBadgeBackgroundColor({
-    tabId: session.tabId,
-    color: badgeState.color
+    tabId,
+    color
   });
 
   if (chrome.action.setBadgeTextColor) {
     await chrome.action.setBadgeTextColor({
-      tabId: session.tabId,
+      tabId,
       color: "#ffffff"
     });
   }
 
   await chrome.action.setBadgeText({
-    tabId: session.tabId,
-    text: badgeState.text
+    tabId,
+    text
   });
 }
 
 async function clearBadge(tabId) {
+  lastBadgeByTab.delete(tabId);
   await chrome.action.setBadgeText({ tabId, text: "" });
 }
 
 async function setErrorBadge(tabId) {
-  await chrome.action.setBadgeBackgroundColor({ tabId, color: "#d93025" });
-
-  if (chrome.action.setBadgeTextColor) {
-    await chrome.action.setBadgeTextColor({ tabId, color: "#ffffff" });
-  }
-
-  await chrome.action.setBadgeText({ tabId, text: "!" });
+  await setBadgeVisual(tabId, "!", "#d93025");
 }
 
 function getBadgeState(session) {
