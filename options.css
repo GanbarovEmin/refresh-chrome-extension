@@ -1,24 +1,4 @@
-:root {
-  color-scheme: light;
-  --bg: #f8fafd;
-  --surface: #ffffff;
-  --surface-hover: #f4f8ff;
-  --surface-muted: #f1f4f8;
-  --text: #202124;
-  --muted: #5f6368;
-  --subtle: #80868b;
-  --line: #dfe3eb;
-  --line-soft: #edf1f7;
-  --blue: #1a73e8;
-  --blue-hover: #155fc0;
-  --blue-bg: #e8f0fe;
-  --red: #d93025;
-  --red-bg: #fce8e6;
-  --shadow: 0 10px 28px rgba(60, 64, 67, 0.08);
-  --shadow-soft: 0 3px 10px rgba(60, 64, 67, 0.06);
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
+/* Design tokens live in tokens.css. */
 * {
   box-sizing: border-box;
 }
@@ -28,7 +8,7 @@ body {
   min-height: 100dvh;
   background:
     radial-gradient(circle at 18% 0%, rgba(26, 115, 232, 0.08), transparent 31rem),
-    linear-gradient(180deg, #ffffff 0%, var(--bg) 38%, #f6f9ff 100%);
+    linear-gradient(180deg, var(--surface) 0%, var(--bg) 38%, var(--bg) 100%);
   color: var(--text);
   font-family: "Google Sans", Roboto, Arial, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -104,7 +84,7 @@ h1 {
 .rules-card {
   gap: 16px;
   background:
-    linear-gradient(180deg, #ffffff 0%, #ffffff 70%, #fbfcff 100%);
+    linear-gradient(180deg, var(--surface) 0%, var(--surface) 70%, var(--surface-raised) 100%);
 }
 
 h2 {
@@ -155,7 +135,7 @@ h2 {
 #reload-rules:hover,
 .rule-action:hover {
   background: var(--blue-bg);
-  border-color: #c7d7fb;
+  border-color: var(--blue-border);
 }
 
 #reload-rules:active,
@@ -206,32 +186,13 @@ h2 {
 }
 
 .rules-search input:hover {
-  background: #fbfcff;
-  border-color: #c6ccd6;
+  background: var(--surface-raised);
+  border-color: var(--line-strong);
 }
 
 .rules-search input:focus-visible {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.14);
-}
-
-.rules-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.rules-toolbar span {
-  display: inline-flex;
-  min-height: 26px;
-  align-items: center;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  padding: 0 10px;
-  background: #fbfcff;
-  color: var(--subtle);
-  font-size: 11px;
-  font-weight: 600;
 }
 
 .rule-item {
@@ -242,7 +203,7 @@ h2 {
   padding: 14px 12px;
   border: 1px solid transparent;
   border-radius: 14px;
-  background: #f8fafd;
+  background: var(--surface-muted);
   transition: background 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease);
 }
 
@@ -267,7 +228,7 @@ h2 {
 
 .rule-item:hover {
   background: var(--surface-hover);
-  border-color: #d8e0ec;
+  border-color: var(--line-strong);
 }
 
 .rule-title {
@@ -292,7 +253,7 @@ h2 {
   border-radius: 999px;
   background: var(--blue-bg);
   color: var(--blue);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
   line-height: 1;
 }
@@ -317,7 +278,7 @@ h2 {
   padding: 26px 18px;
   border: 1px dashed var(--line);
   border-radius: 14px;
-  background: #fbfcff;
+  background: var(--surface-raised);
   color: var(--subtle);
   text-align: center;
 }

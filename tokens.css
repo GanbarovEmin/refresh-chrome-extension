@@ -1,0 +1,91 @@
+/*
+ * Shared design tokens for the popup and options page.
+ * Single source of truth for color, elevation, and motion — replaces the two
+ * drifting :root blocks that used to live in popup.css and options.css.
+ * Dark mode follows the OS/browser theme via prefers-color-scheme.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --bg: #f8fafd;
+  --surface: #ffffff;
+  --surface-raised: #fbfcff;
+  --surface-muted: #f1f4f8;
+  --surface-hover: #f4f8ff;
+
+  /* Text */
+  --text: #202124;
+  --text-strong: #101828;
+  --muted: #5f6368;
+  --subtle: #5f6675; /* darkened from #80868b to clear WCAG AA on light surfaces */
+  --countdown-ink: #0b1f44;
+
+  /* Structure */
+  --line: #dfe3eb;
+  --line-strong: #c6ccd6;
+  --line-soft: #edf1f7;
+
+  /* Accent */
+  --blue: #1a73e8;
+  --blue-hover: #155fc0;
+  --blue-bg: #e8f0fe;
+  --blue-border: #c7d7fb;
+  --on-accent: #ffffff;
+
+  /* Status */
+  --amber: #f29900;
+  --red: #d93025;
+  --red-bg: #fce8e6;
+
+  /* Controls */
+  --track: #e5e7eb;
+  --toggle-bg: #e9edf3;
+  --toggle-border: #c8d0dc;
+  --toggle-knob: #ffffff;
+
+  /* Elevation & motion */
+  --shadow-soft: 0 3px 10px rgba(60, 64, 67, 0.06);
+  --shadow: 0 10px 28px rgba(60, 64, 67, 0.08);
+  --shadow-card: 0 14px 34px rgba(60, 64, 67, 0.1);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #202124;
+    --surface: #292a2d;
+    --surface-raised: #2d2e31;
+    --surface-muted: #35363a;
+    --surface-hover: #303134;
+
+    --text: #e8eaed;
+    --text-strong: #f1f3f4;
+    --muted: #9aa0a6;
+    --subtle: #9aa0a6; /* light text on dark surfaces clears AA comfortably */
+    --countdown-ink: #e8eaed;
+
+    --line: #3c4043;
+    --line-strong: #4a4e54;
+    --line-soft: #303134;
+
+    --blue: #8ab4f8;
+    --blue-hover: #aecbfa;
+    --blue-bg: #1f2a3d;
+    --blue-border: #3c4c6b;
+    --on-accent: #202124;
+
+    --amber: #fdd663;
+    --red: #f28b82;
+    --red-bg: #3a2b2a;
+
+    --track: #3c4043;
+    --toggle-bg: #3c4043;
+    --toggle-border: #5f6368;
+    --toggle-knob: #dfe1e5;
+
+    --shadow-soft: 0 3px 10px rgba(0, 0, 0, 0.4);
+    --shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+    --shadow-card: 0 14px 34px rgba(0, 0, 0, 0.55);
+  }
+}

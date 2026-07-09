@@ -17,6 +17,12 @@ is subtle CSS feedback only.
 - **Google Blue** (#1A73E8) — the single accent for active states, focus rings,
   progress, controls, and extension identity.
 
+All colors are defined once as CSS custom properties in `tokens.css` (shared by
+the popup and options page). A dark palette mirrors the light one under
+`@media (prefers-color-scheme: dark)`, so the UI follows the system theme; the
+accent shifts to Google's dark-mode blue (#8AB4F8). Subtle text is tuned to meet
+WCAG AA contrast on its surfaces.
+
 ## 3. Typography Rules
 
 - **Display:** Google Sans or Geist-like sans-serif, compact and weight-led.

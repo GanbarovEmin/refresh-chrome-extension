@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Refresh Options</title>
+    <link rel="stylesheet" href="tokens.css">
     <link rel="stylesheet" href="options.css">
   </head>
   <body>
@@ -44,16 +45,13 @@
           <span>Search domains</span>
           <input id="rules-search" type="search" autocomplete="off" placeholder="example.com">
         </label>
-        <div class="rules-toolbar" aria-hidden="true">
-          <span>Saved profiles</span>
-          <span>Blocked domains</span>
-        </div>
         <div id="rules-list" class="rules-list" aria-live="polite">
           <p class="empty-state">No domain rules yet.</p>
         </div>
       </section>
     </main>
 
+    <script src="src/shared.js"></script>
     <script src="src/options.js"></script>
   </body>
 </html>
