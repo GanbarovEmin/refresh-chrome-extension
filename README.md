@@ -8,6 +8,16 @@ The timer is click-aware: only a real click inside the page resets the
 countdown. Opening the tab, switching focus, moving the mouse, scrolling, or
 typing without a click does not restart the timer.
 
+## Screenshots
+
+| Popup (light) | Popup (dark) |
+| --- | --- |
+| ![Popup in light theme](docs/screenshots/popup-light.png) | ![Popup in dark theme](docs/screenshots/popup-dark.png) |
+
+| Options (light) | Options (dark) |
+| --- | --- |
+| ![Options page in light theme](docs/screenshots/options-light.png) | ![Options page in dark theme](docs/screenshots/options-dark.png) |
+
 ## Features
 
 - Refreshes only the tab where the extension was started.
@@ -24,7 +34,10 @@ typing without a click does not restart the timer.
 - Shows an `Active tabs` overview with quick open/stop controls.
 - Includes an Options page for managing saved and blocked domains.
 - Shows a compact status badge on the extension icon.
+- Provides keyboard shortcuts to start/pause/resume and refresh now.
+- Exports and imports domain rules as JSON from the Options page.
 - Follows the system light/dark theme automatically.
+- Available in English and Russian (follows the browser language).
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
 - Includes source SVG plus Chrome PNG icon sizes.
 
@@ -60,6 +73,16 @@ typing without a click does not restart the timer.
   the full selected interval.
 - `Stop` removes the session from the current tab and clears the badge.
 
+## Keyboard Shortcuts
+
+Refresh registers two commands (suggested defaults, editable at
+`chrome://extensions/shortcuts`):
+
+- `Alt+Shift+R` — start refresh on the current tab, or pause/resume it if a
+  session is already running. Starting this way uses the interval and safety
+  settings last chosen in the popup.
+- `Alt+Shift+E` — refresh the current tab now (only while a session is running).
+
 ## Site Controls
 
 Refresh can remember workspace settings per hostname without starting anything
@@ -74,6 +97,10 @@ silently:
 
 Saved profiles are prompt-based. Opening a saved domain shows `Saved profile
 available`, but the extension waits for you to click `Use saved`.
+
+The Options page can `Export` all domain rules to a JSON file and `Import` them
+back (imported rules are validated and merged with the existing ones), which is
+handy for backups or moving rules between machines.
 
 ## Active Tabs
 
@@ -135,6 +162,13 @@ shows a blocked status instead of trying to run.
 Session stats are stored in `chrome.storage.session`, so they reset when the
 browser session ends.
 
+## Localization
+
+The interface is available in English (default) and Russian. Chrome picks the
+locale from the browser UI language via `chrome.i18n`, with all strings stored
+in `_locales/<lang>/messages.json`. The short toolbar badge codes
+(`PAU`, `SKIP`, `WAIT`) stay compact and are not localized.
+
 ## Project Structure
 
 ```text
@@ -145,11 +179,13 @@ popup.html          Extension popup markup
 popup.css           Popup styling
 options.html        Domain rules manager
 options.css         Options page styling
-src/background.js   Per-tab timer, alarms, reload flow
+src/background.js   Per-tab timer, alarms, reload flow, commands, rule import
 src/content.js      Page click detection and safe-input guard state
 src/popup.js        Popup state and controls
-src/options.js      Saved and blocked domain rules UI
+src/options.js      Saved and blocked domain rules UI, export/import
 src/shared.js       Helpers shared by the worker, popup, and options
+_locales/           Localized UI strings (en, ru)
+docs/screenshots/   README screenshots
 icons/              Source SVG and PNG extension icons
 test-page.html      Local manual QA page
 ```

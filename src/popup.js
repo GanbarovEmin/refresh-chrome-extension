@@ -1,4 +1,17 @@
-const { getErrorMessage, formatIntervalLabel } = self.RefreshShared;
+const { getErrorMessage, formatIntervalLabel, getMsg, localizePage } = self.RefreshShared;
+
+const HISTORY_KEYS = {
+  start: "historyStart",
+  click: "historyClick",
+  refresh: "historyRefresh",
+  "manual-reset": "historyManualReset",
+  "manual-refresh": "historyManualRefresh",
+  pause: "historyPause",
+  resume: "historyResume",
+  settings: "historySettings",
+  "skipped-inactive": "historySkippedInactive",
+  "postponed-typing": "historyPostponedTyping"
+};
 
 const stateLabel = document.querySelector("#tab-state");
 const statusPanel = document.querySelector("#status-panel");
@@ -53,6 +66,7 @@ init().catch((error) => {
 });
 
 async function init() {
+  localizePage();
   await restorePreferredInterval();
   await restoreSafetySettings();
   activeTab = await getActiveTab();
@@ -160,7 +174,7 @@ async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (!tab || typeof tab.id !== "number") {
-    throw new Error("No active tab was found.");
+    throw new Error(getMsg("errorNoTab"));
   }
 
   return tab;
@@ -509,18 +523,18 @@ function renderState(session) {
     setControlsDisabled(false);
     setStatusVisualState("error");
     renderProgressRing(0);
-    stateLabel.textContent = "Error";
+    stateLabel.textContent = getMsg("statusError");
     stateLabel.classList.add("is-error");
-    countdown.textContent = "Blocked";
+    countdown.textContent = getMsg("countdownBlocked");
     statusMessage.textContent = session.error;
     statusMessage.classList.add("is-error");
-    resetMessage.textContent = "Not available";
-    nextRefreshAtValue.textContent = "Not scheduled";
-    lastRefreshValue.textContent = "Never";
+    resetMessage.textContent = getMsg("valueNotAvailable");
+    nextRefreshAtValue.textContent = getMsg("valueNotScheduled");
+    lastRefreshValue.textContent = getMsg("valueNever");
     refreshCountValue.textContent = "0";
     renderHistory(session.history);
     setSessionActionsDisabled(true);
-    setPrimaryButtonLabel("Start refresh");
+    setPrimaryButtonLabel(getMsg("labelStart"));
     syncRingActionState();
     return;
   }
@@ -529,16 +543,16 @@ function renderState(session) {
     setControlsDisabled(false);
     setStatusVisualState("inactive");
     renderProgressRing(0);
-    stateLabel.textContent = "Inactive";
-    countdown.textContent = "Ready";
-    statusMessage.textContent = "Choose an interval and start refresh for this tab.";
-    resetMessage.textContent = "Not started";
-    nextRefreshAtValue.textContent = "Not scheduled";
-    lastRefreshValue.textContent = "Never";
+    stateLabel.textContent = getMsg("statusInactive");
+    countdown.textContent = getMsg("countdownReady");
+    statusMessage.textContent = getMsg("msgChoose");
+    resetMessage.textContent = getMsg("valueNotStarted");
+    nextRefreshAtValue.textContent = getMsg("valueNotScheduled");
+    lastRefreshValue.textContent = getMsg("valueNever");
     refreshCountValue.textContent = "0";
     renderHistory([]);
     setSessionActionsDisabled(true);
-    setPrimaryButtonLabel("Start refresh");
+    setPrimaryButtonLabel(getMsg("labelStart"));
     syncRingActionState();
     return;
   }
@@ -554,42 +568,42 @@ function renderState(session) {
 
   if (session.paused) {
     setStatusVisualState("paused");
-    stateLabel.textContent = "Paused";
+    stateLabel.textContent = getMsg("statusPaused");
     stateLabel.classList.add("is-paused");
-    statusMessage.textContent = `Paused with ${formatRemainingTime(remainingMs)} remaining. Resume keeps the saved countdown.`;
-    setPrimaryButtonLabel("Resume");
+    statusMessage.textContent = getMsg("msgPaused", formatRemainingTime(remainingMs));
+    setPrimaryButtonLabel(getMsg("labelResume"));
   } else if (session.skipReason === "inactive") {
     setStatusVisualState("skipped");
-    stateLabel.textContent = "Skipped";
+    stateLabel.textContent = getMsg("statusSkipped");
     stateLabel.classList.add("is-skipped");
-    statusMessage.textContent = "Skipped because tab is inactive.";
-    setPrimaryButtonLabel("Pause");
+    statusMessage.textContent = getMsg("msgSkipped");
+    setPrimaryButtonLabel(getMsg("labelPause"));
   } else if (session.skipReason === "typing") {
     setStatusVisualState("postponed");
-    stateLabel.textContent = "Waiting";
+    stateLabel.textContent = getMsg("statusWaiting");
     stateLabel.classList.add("is-postponed");
-    statusMessage.textContent = "Typing detected. Refresh postponed.";
-    setPrimaryButtonLabel("Pause");
+    statusMessage.textContent = getMsg("msgTyping");
+    setPrimaryButtonLabel(getMsg("labelPause"));
   } else if (recentlyClicked) {
     setStatusVisualState("waiting");
-    stateLabel.textContent = "Waiting";
+    stateLabel.textContent = getMsg("statusWaiting");
     stateLabel.classList.add("is-waiting");
-    statusMessage.textContent = `Click detected. Timer restarted for ${intervalLabel}.`;
-    setPrimaryButtonLabel("Pause");
+    statusMessage.textContent = getMsg("msgClick", intervalLabel);
+    setPrimaryButtonLabel(getMsg("labelPause"));
   } else {
     setStatusVisualState("active");
-    stateLabel.textContent = "Active";
+    stateLabel.textContent = getMsg("statusActive");
     stateLabel.classList.add("is-active");
     statusMessage.textContent = session.smartMode
-      ? `Running every ${intervalLabel}. Click inside the page resets the timer.`
-      : `Running every ${intervalLabel}. Smart mode is off; clicks are logged only.`;
-    setPrimaryButtonLabel("Pause");
+      ? getMsg("msgRunningSmart", intervalLabel)
+      : getMsg("msgRunningNoSmart", intervalLabel);
+    setPrimaryButtonLabel(getMsg("labelPause"));
   }
 
   countdown.textContent = formatRemainingTime(remainingMs);
   renderProgressRing(progressRatio);
   resetMessage.textContent = formatLastResetReason(session.lastResetReason);
-  nextRefreshAtValue.textContent = session.paused ? "Paused" : formatTimestamp(session.nextRefreshAt || session.dueAt, "Not scheduled");
+  nextRefreshAtValue.textContent = session.paused ? getMsg("statusPaused") : formatTimestamp(session.nextRefreshAt || session.dueAt, getMsg("valueNotScheduled"));
   lastRefreshValue.textContent = formatTimestamp(session.lastRefreshAt);
   refreshCountValue.textContent = String(Number(session.refreshCount || 0));
   renderHistory(session.history);
@@ -601,19 +615,19 @@ function renderValidationError(message) {
   setControlsDisabled(false);
   setStatusVisualState("error");
   renderProgressRing(0);
-  stateLabel.textContent = "Error";
+  stateLabel.textContent = getMsg("statusError");
   stateLabel.classList.add("is-error");
-  countdown.textContent = "Ready";
+  countdown.textContent = getMsg("countdownReady");
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
-  resetMessage.textContent = "Not started";
-  nextRefreshAtValue.textContent = "Not scheduled";
-  lastRefreshValue.textContent = "Never";
+  resetMessage.textContent = getMsg("valueNotStarted");
+  nextRefreshAtValue.textContent = getMsg("valueNotScheduled");
+  lastRefreshValue.textContent = getMsg("valueNever");
   refreshCountValue.textContent = "0";
   renderHistory([]);
   setSessionActionsDisabled(true);
   customMinutesInput.setAttribute("aria-invalid", "true");
-  setPrimaryButtonLabel("Start refresh");
+  setPrimaryButtonLabel(getMsg("labelStart"));
   syncRingActionState();
 }
 
@@ -633,7 +647,7 @@ function getSelectedIntervalSelection() {
   const customMinutes = Number(customMinutesInput.value);
 
   if (!Number.isFinite(customMinutes) || customMinutes < MIN_CUSTOM_MINUTES || customMinutes > MAX_CUSTOM_MINUTES) {
-    return { ok: false, error: "Enter a custom interval from 1 to 999 minutes." };
+    return { ok: false, error: getMsg("errorCustomInterval") };
   }
 
   return {
@@ -735,35 +749,17 @@ function getProgressRatio(session, remainingMs) {
 }
 
 function formatLastResetReason(reason) {
-  if (reason === "click") {
-    return "Click";
-  }
+  const keys = {
+    click: "resetClick",
+    refresh: "resetRefresh",
+    start: "resetStart",
+    pause: "resetPause",
+    resume: "resetResume",
+    "manual-reset": "resetManualReset",
+    "manual-refresh": "resetManualRefresh"
+  };
 
-  if (reason === "refresh") {
-    return "Auto refresh";
-  }
-
-  if (reason === "start") {
-    return "Start";
-  }
-
-  if (reason === "pause") {
-    return "Pause";
-  }
-
-  if (reason === "resume") {
-    return "Resume";
-  }
-
-  if (reason === "manual-reset") {
-    return "Reset timer";
-  }
-
-  if (reason === "manual-refresh") {
-    return "Refresh now";
-  }
-
-  return "Not started";
+  return keys[reason] ? getMsg(keys[reason]) : getMsg("valueNotStarted");
 }
 
 function renderHistory(history = []) {
@@ -773,7 +769,7 @@ function renderHistory(history = []) {
 
   if (!events.length) {
     const item = document.createElement("li");
-    item.textContent = "No events yet";
+    item.textContent = getMsg("historyEmpty");
     historyList.append(item);
     return;
   }
@@ -782,8 +778,9 @@ function renderHistory(history = []) {
     const item = document.createElement("li");
     const label = document.createElement("span");
     const time = document.createElement("time");
+    const key = HISTORY_KEYS[event.type];
 
-    label.textContent = event.label || "Event";
+    label.textContent = key ? getMsg(key) : (event.label || "Event");
     time.textContent = formatTimestamp(event.at, "");
     item.append(label, time);
     historyList.append(item);
@@ -799,18 +796,18 @@ function renderSiteContext() {
   const hasRunningSession = Boolean(currentSession && currentSession.enabled);
 
   siteStatus.classList.toggle("is-blocked", Boolean(isBlocked));
-  siteHostname.textContent = hostname || "No domain";
+  siteHostname.textContent = hostname || getMsg("siteNoDomain");
 
   if (!supported) {
     siteStatus.textContent = siteContext && siteContext.unsupportedReason
       ? siteContext.unsupportedReason
-      : "Site profiles are available for regular web domains.";
+      : getMsg("siteSupportedHint");
   } else if (isBlocked) {
-    siteStatus.textContent = "Refresh is disabled for this domain. Remove the rule in Options to run it again.";
+    siteStatus.textContent = getMsg("siteBlocked");
   } else if (hasSavedProfile) {
-    siteStatus.textContent = `Saved profile available: ${formatIntervalLabel(rule.intervalSeconds)}.`;
+    siteStatus.textContent = getMsg("siteSavedAvailable", formatIntervalLabel(rule.intervalSeconds));
   } else {
-    siteStatus.textContent = "No profile saved for this site.";
+    siteStatus.textContent = getMsg("siteNoProfile");
   }
 
   rememberSiteButton.disabled = isBusy || !supported || isBlocked;
@@ -830,18 +827,18 @@ function renderDomainBlockedStatus() {
   clearStatusClasses();
   setStatusVisualState("error");
   renderProgressRing(0);
-  stateLabel.textContent = "Blocked";
+  stateLabel.textContent = getMsg("statusBlocked");
   stateLabel.classList.add("is-error");
-  countdown.textContent = "Blocked";
-  statusMessage.textContent = "Refresh is disabled for this domain. Remove the rule in Options to start again.";
+  countdown.textContent = getMsg("countdownBlocked");
+  statusMessage.textContent = getMsg("siteBlockedStart");
   statusMessage.classList.add("is-error");
-  resetMessage.textContent = "Domain rule";
-  nextRefreshAtValue.textContent = "Not scheduled";
-  lastRefreshValue.textContent = "Never";
+  resetMessage.textContent = getMsg("valueDomainRule");
+  nextRefreshAtValue.textContent = getMsg("valueNotScheduled");
+  lastRefreshValue.textContent = getMsg("valueNever");
   refreshCountValue.textContent = "0";
   renderHistory([]);
   setSessionActionsDisabled(true);
-  setPrimaryButtonLabel("Start refresh");
+  setPrimaryButtonLabel(getMsg("labelStart"));
   syncRingActionState();
 }
 
@@ -851,7 +848,7 @@ function renderActiveSessions(sessions = [], total = sessions.length) {
 
   if (!sessions.length) {
     const item = document.createElement("li");
-    item.textContent = "No active refresh tabs";
+    item.textContent = getMsg("activeEmpty");
     activeTabsList.append(item);
     return;
   }
@@ -868,29 +865,29 @@ function renderActiveSessions(sessions = [], total = sessions.length) {
     item.className = "active-tab-item";
     main.className = "active-tab-main";
     controls.className = "active-tab-controls";
-    title.textContent = session.title || session.hostname || "Untitled";
+    title.textContent = session.title || session.hostname || getMsg("untitled");
     title.title = title.textContent;
     meta.textContent = `${session.hostname || "local"} · ${formatIntervalLabel(session.intervalSeconds)} · ${formatActiveTabStatus(session)}`;
-    const tabName = session.title || session.hostname || "tab";
+    const tabName = session.title || session.hostname || getMsg("untitled");
     openButton.className = "active-tab-action";
     openButton.type = "button";
-    openButton.textContent = "Open";
+    openButton.textContent = getMsg("activeOpen");
     openButton.dataset.action = "open";
     openButton.dataset.tabId = String(session.tabId);
-    openButton.setAttribute("aria-label", `Open ${tabName}`);
+    openButton.setAttribute("aria-label", getMsg("activeOpenLabel", tabName));
     stopButtonItem.className = "active-tab-action";
     stopButtonItem.type = "button";
-    stopButtonItem.textContent = "Stop";
+    stopButtonItem.textContent = getMsg("activeStop");
     stopButtonItem.dataset.action = "stop";
     stopButtonItem.dataset.tabId = String(session.tabId);
-    stopButtonItem.setAttribute("aria-label", `Stop refresh on ${tabName}`);
+    stopButtonItem.setAttribute("aria-label", getMsg("activeStopLabel", tabName));
 
     main.append(title, meta);
 
     if (session.isCurrent) {
       const currentLabel = document.createElement("span");
       currentLabel.className = "active-tab-current";
-      currentLabel.textContent = "Current";
+      currentLabel.textContent = getMsg("activeCurrent");
       controls.append(currentLabel);
     } else {
       controls.append(openButton);
@@ -904,21 +901,21 @@ function renderActiveSessions(sessions = [], total = sessions.length) {
 
 function formatActiveTabStatus(session) {
   if (session.paused) {
-    return "Paused";
+    return getMsg("statusPaused");
   }
 
   if (session.skipReason === "inactive") {
-    return "Skipped";
+    return getMsg("statusSkipped");
   }
 
   if (session.skipReason === "typing") {
-    return "Waiting";
+    return getMsg("statusWaiting");
   }
 
   return formatRemainingTime(Math.max(0, Number(session.dueAt) - Date.now()));
 }
 
-function formatTimestamp(timestamp, fallback = "Never") {
+function formatTimestamp(timestamp, fallback = getMsg("valueNever")) {
   const value = Number(timestamp);
 
   if (!Number.isFinite(value) || value <= 0) {
@@ -1047,18 +1044,18 @@ function renderError(message) {
   setControlsDisabled(false);
   setStatusVisualState("error");
   renderProgressRing(0);
-  stateLabel.textContent = "Error";
+  stateLabel.textContent = getMsg("statusError");
   stateLabel.classList.add("is-error");
-  countdown.textContent = "Blocked";
+  countdown.textContent = getMsg("countdownBlocked");
   statusMessage.textContent = message;
   statusMessage.classList.add("is-error");
-  resetMessage.textContent = "Not available";
-  nextRefreshAtValue.textContent = "Not scheduled";
-  lastRefreshValue.textContent = "Never";
+  resetMessage.textContent = getMsg("valueNotAvailable");
+  nextRefreshAtValue.textContent = getMsg("valueNotScheduled");
+  lastRefreshValue.textContent = getMsg("valueNever");
   refreshCountValue.textContent = "0";
   renderHistory([]);
   setSessionActionsDisabled(true);
-  setPrimaryButtonLabel("Start refresh");
+  setPrimaryButtonLabel(getMsg("labelStart"));
   syncRingActionState();
 }
 
@@ -1087,7 +1084,7 @@ function getPrimaryButtonLabel() {
     return labelNode.textContent.trim();
   }
 
-  return toggleButton.textContent.trim() || "Start refresh";
+  return toggleButton.textContent.trim() || getMsg("labelStart");
 }
 
 window.addEventListener("unload", () => {
