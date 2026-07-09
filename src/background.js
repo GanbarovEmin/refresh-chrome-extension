@@ -1,15 +1,42 @@
+importScripts("/src/shared.js");
+
+const { getErrorMessage } = self.RefreshShared;
+
 const SESSION_KEY = "refresh.sessions.v1";
 const DOMAIN_RULES_KEY = "refresh.domainRules.v1";
 const ALARM_PREFIX = "refresh-tab:";
-const BADGE_TICK_MS = 1000;
+const BADGE_ALARM = "refresh-badge-tick";
+const BADGE_TICK_MINUTES = 0.5;
 const MIN_INTERVAL_SECONDS = 60;
 const MAX_INTERVAL_SECONDS = 999 * 60;
 const POSTPONE_DELAY_MS = 60 * 1000;
 const MAX_HISTORY_ITEMS = 10;
 const SUPPORTED_PROTOCOLS = ["http:", "https:", "file:"];
 
-let badgeTimerId = null;
 const lastBadgeByTab = new Map();
+
+// Serializes every read-modify-write of the sessions object. Without this,
+// concurrent handlers (content-script activity, alarm firing, tab/window focus
+// events) each did readSessions() -> mutate -> writeSessions(whole object) and
+// silently clobbered each other. withSessions() chains mutations so each one
+// reads the freshest state and its write completes before the next starts.
+let sessionsMutationChain = Promise.resolve();
+
+function withSessions(mutator) {
+  const run = sessionsMutationChain.then(async () => {
+    const sessions = await readSessions();
+    const result = await mutator(sessions);
+    await writeSessions(sessions);
+    return result;
+  });
+
+  sessionsMutationChain = run.then(
+    () => {},
+    () => {}
+  );
+
+  return run;
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
@@ -20,6 +47,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === BADGE_ALARM) {
+    updateAllBadges().catch(() => {});
+    return;
+  }
+
   if (!alarm.name.startsWith(ALARM_PREFIX)) {
     return;
   }
@@ -39,15 +71,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     return;
   }
 
-  restoreContentScript(tabId).catch(async (error) => {
-    await setTabError(tabId, getErrorMessage(error));
-  });
+  // Transient failures (tab closing, navigation revoking access) must not turn
+  // into a persisted error state, so swallow them quietly here.
+  restoreContentScript(tabId).catch(() => {});
 });
 
 chrome.tabs.onActivated.addListener(({ tabId }) => {
-  processDueSession(tabId).catch(async (error) => {
-    await setTabError(tabId, getErrorMessage(error));
-  });
+  processDueSession(tabId).catch(() => {});
 });
 
 chrome.windows.onFocusChanged.addListener((windowId) => {
@@ -216,14 +246,10 @@ async function startSession(message) {
 
   await saveSession(session);
 
-  try {
-    await injectContentScript(normalizedTabId);
-  } catch (error) {
-    const messageText = getErrorMessage(error);
-    await setTabError(normalizedTabId, messageText, tab.url);
-    throw new Error(messageText);
-  }
-
+  // The content script powers click-reset and typing protection. The
+  // alarm-based refresh still works without it, so an injection failure is not
+  // fatal to the session.
+  await injectContentScript(normalizedTabId);
   await scheduleAlarm(session);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
@@ -367,6 +393,7 @@ async function getActiveSessionsResponse(currentTabId) {
   const sessions = await readSessions();
   const normalizedCurrentTabId = Number(currentTabId);
   const activeSessions = [];
+  const staleTabIds = [];
 
   for (const session of Object.values(sessions)) {
     if (!session || !session.enabled) {
@@ -377,8 +404,12 @@ async function getActiveSessionsResponse(currentTabId) {
       const tab = await chrome.tabs.get(session.tabId);
       activeSessions.push(formatActiveSession(session, tab, session.tabId === normalizedCurrentTabId));
     } catch (error) {
-      await removeSession(session.tabId);
+      staleTabIds.push(session.tabId);
     }
+  }
+
+  if (staleTabIds.length) {
+    await Promise.all(staleTabIds.map((tabId) => removeSession(tabId)));
   }
 
   activeSessions.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || a.hostname.localeCompare(b.hostname));
@@ -401,30 +432,38 @@ async function resetSessionAfterActivity(tabId, activityAt) {
     return;
   }
 
-  const sessions = await readSessions();
-  const key = String(tabId);
-  const session = sessions[key];
+  const now = Number(activityAt) || Date.now();
+  const session = await withSessions((sessions) => {
+    const key = String(tabId);
+    const current = sessions[key];
 
-  if (!session || !session.enabled || session.paused) {
+    if (!current || !current.enabled || current.paused) {
+      return null;
+    }
+
+    current.lastActivityAt = now;
+    current.lastResetReason = "click";
+
+    if (current.smartMode) {
+      current.dueAt = now + secondsToMs(current.intervalSeconds);
+      current.nextRefreshAt = current.dueAt;
+      current.skipReason = null;
+      current.postponedUntil = null;
+    }
+
+    addHistory(current, "click", current.smartMode ? "Click reset" : "Click logged", now);
+
+    return current;
+  });
+
+  if (!session) {
     return;
   }
 
-  const now = Number(activityAt) || Date.now();
-  session.lastActivityAt = now;
-  session.lastResetReason = "click";
-
   if (session.smartMode) {
-    session.dueAt = now + secondsToMs(session.intervalSeconds);
-    session.nextRefreshAt = session.dueAt;
-    session.skipReason = null;
-    session.postponedUntil = null;
     await scheduleAlarm(session);
   }
 
-  addHistory(session, "click", session.smartMode ? "Click reset" : "Click logged", now);
-
-  sessions[key] = session;
-  await writeSessions(sessions);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
 }
@@ -434,53 +473,53 @@ async function updateGuardState(tabId, guardMessage) {
     return;
   }
 
-  const sessions = await readSessions();
-  const key = String(tabId);
-  const session = sessions[key];
+  const session = await withSessions((sessions) => {
+    const key = String(tabId);
+    const current = sessions[key];
 
-  if (!session || !session.enabled) {
-    return;
-  }
+    if (!current || !current.enabled) {
+      return null;
+    }
 
-  session.guardState = {
-    focusedEditable: Boolean(guardMessage.focusedEditable),
-    dirtyInput: Boolean(guardMessage.dirtyInput),
-    guardActive: Boolean(guardMessage.guardActive),
-    reason: typeof guardMessage.reason === "string" ? guardMessage.reason : "unknown",
-    updatedAt: Number(guardMessage.at) || Date.now()
-  };
+    current.guardState = {
+      focusedEditable: Boolean(guardMessage.focusedEditable),
+      dirtyInput: Boolean(guardMessage.dirtyInput),
+      guardActive: Boolean(guardMessage.guardActive),
+      reason: typeof guardMessage.reason === "string" ? guardMessage.reason : "unknown",
+      updatedAt: Number(guardMessage.at) || Date.now()
+    };
 
-  sessions[key] = session;
-  await writeSessions(sessions);
+    return current;
+  });
 
-  if (!session.guardState.guardActive && session.skipReason === "typing") {
+  if (session && !session.guardState.guardActive && session.skipReason === "typing") {
     await processDueSession(tabId);
   }
 }
 
 async function pauseSession(tabId) {
   const normalizedTabId = normalizeTabId(tabId);
-  const sessions = await readSessions();
-  const key = String(normalizedTabId);
-  const session = getEnabledSession(sessions, key);
   const now = Date.now();
+  const session = await withSessions((sessions) => {
+    const key = String(normalizedTabId);
+    const current = getEnabledSession(sessions, key);
 
-  if (session.paused) {
-    await updateBadgeForSession(session);
-    return { ok: true, session };
-  }
+    if (current.paused) {
+      return current;
+    }
 
-  session.paused = true;
-  session.pausedRemainingMs = Math.max(0, Number(session.dueAt) - now);
-  session.pauseStartedAt = now;
-  session.lastResetReason = "pause";
-  session.nextRefreshAt = null;
-  session.skipReason = null;
-  session.postponedUntil = null;
-  addHistory(session, "pause", "Paused", now);
+    current.paused = true;
+    current.pausedRemainingMs = Math.max(0, Number(current.dueAt) - now);
+    current.pauseStartedAt = now;
+    current.lastResetReason = "pause";
+    current.nextRefreshAt = null;
+    current.skipReason = null;
+    current.postponedUntil = null;
+    addHistory(current, "pause", "Paused", now);
 
-  sessions[key] = session;
-  await writeSessions(sessions);
+    return current;
+  });
+
   await clearAlarm(normalizedTabId);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
@@ -490,24 +529,25 @@ async function pauseSession(tabId) {
 
 async function resumeSession(tabId) {
   const normalizedTabId = normalizeTabId(tabId);
-  const sessions = await readSessions();
-  const key = String(normalizedTabId);
-  const session = getEnabledSession(sessions, key);
   const now = Date.now();
-  const remainingMs = Math.max(0, Number(session.pausedRemainingMs) || secondsToMs(session.intervalSeconds));
+  const session = await withSessions((sessions) => {
+    const key = String(normalizedTabId);
+    const current = getEnabledSession(sessions, key);
+    const remainingMs = Math.max(0, Number(current.pausedRemainingMs) || secondsToMs(current.intervalSeconds));
 
-  session.paused = false;
-  session.pausedRemainingMs = null;
-  session.pauseStartedAt = null;
-  session.lastResetReason = "resume";
-  session.dueAt = now + remainingMs;
-  session.nextRefreshAt = session.dueAt;
-  session.skipReason = null;
-  session.postponedUntil = null;
-  addHistory(session, "resume", "Resumed", now);
+    current.paused = false;
+    current.pausedRemainingMs = null;
+    current.pauseStartedAt = null;
+    current.lastResetReason = "resume";
+    current.dueAt = now + remainingMs;
+    current.nextRefreshAt = current.dueAt;
+    current.skipReason = null;
+    current.postponedUntil = null;
+    addHistory(current, "resume", "Resumed", now);
 
-  sessions[key] = session;
-  await writeSessions(sessions);
+    return current;
+  });
+
   await scheduleAlarm(session);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
@@ -517,30 +557,35 @@ async function resumeSession(tabId) {
 
 async function resetSessionTimer(tabId) {
   const normalizedTabId = normalizeTabId(tabId);
-  const sessions = await readSessions();
-  const key = String(normalizedTabId);
-  const session = getEnabledSession(sessions, key);
   const now = Date.now();
-  const fullIntervalMs = secondsToMs(session.intervalSeconds);
+  const session = await withSessions((sessions) => {
+    const key = String(normalizedTabId);
+    const current = getEnabledSession(sessions, key);
+    const fullIntervalMs = secondsToMs(current.intervalSeconds);
 
-  session.lastResetReason = "manual-reset";
-  session.skipReason = null;
-  session.postponedUntil = null;
-  addHistory(session, "manual-reset", "Reset timer", now);
+    current.lastResetReason = "manual-reset";
+    current.skipReason = null;
+    current.postponedUntil = null;
+    addHistory(current, "manual-reset", "Reset timer", now);
+
+    if (current.paused) {
+      current.pausedRemainingMs = fullIntervalMs;
+      current.pauseStartedAt = now;
+      current.nextRefreshAt = null;
+    } else {
+      current.dueAt = now + fullIntervalMs;
+      current.nextRefreshAt = current.dueAt;
+    }
+
+    return current;
+  });
 
   if (session.paused) {
-    session.pausedRemainingMs = fullIntervalMs;
-    session.pauseStartedAt = now;
-    session.nextRefreshAt = null;
     await clearAlarm(normalizedTabId);
   } else {
-    session.dueAt = now + fullIntervalMs;
-    session.nextRefreshAt = session.dueAt;
     await scheduleAlarm(session);
   }
 
-  sessions[key] = session;
-  await writeSessions(sessions);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
 
@@ -549,9 +594,10 @@ async function resetSessionTimer(tabId) {
 
 async function refreshSessionNow(tabId) {
   const normalizedTabId = normalizeTabId(tabId);
-  const sessions = await readSessions();
   const key = String(normalizedTabId);
-  const session = getEnabledSession(sessions, key);
+  const existing = await readSessions();
+  getEnabledSession(existing, key);
+
   const tab = await chrome.tabs.get(normalizedTabId);
   const unsupportedReason = getUnsupportedReason(tab.url);
 
@@ -563,23 +609,27 @@ async function refreshSessionNow(tabId) {
   await chrome.tabs.reload(normalizedTabId);
 
   const now = Date.now();
-  session.lastRefreshAt = now;
-  session.lastManualRefreshAt = now;
-  session.lastResetReason = "manual-refresh";
-  session.refreshCount = Number(session.refreshCount || 0) + 1;
-  session.paused = false;
-  session.pausedRemainingMs = null;
-  session.pauseStartedAt = null;
-  session.dueAt = now + secondsToMs(session.intervalSeconds);
-  session.nextRefreshAt = session.dueAt;
-  session.skipReason = null;
-  session.postponedUntil = null;
-  session.url = tab.url || session.url || "";
-  session.title = tab.title || session.title || "";
-  addHistory(session, "manual-refresh", "Refresh now", now);
+  const session = await withSessions((sessions) => {
+    const current = getEnabledSession(sessions, key);
 
-  sessions[key] = session;
-  await writeSessions(sessions);
+    current.lastRefreshAt = now;
+    current.lastManualRefreshAt = now;
+    current.lastResetReason = "manual-refresh";
+    current.refreshCount = Number(current.refreshCount || 0) + 1;
+    current.paused = false;
+    current.pausedRemainingMs = null;
+    current.pauseStartedAt = null;
+    current.dueAt = now + secondsToMs(current.intervalSeconds);
+    current.nextRefreshAt = current.dueAt;
+    current.skipReason = null;
+    current.postponedUntil = null;
+    current.url = tab.url || current.url || "";
+    current.title = tab.title || current.title || "";
+    addHistory(current, "manual-refresh", "Refresh now", now);
+
+    return current;
+  });
+
   await scheduleAlarm(session);
   await updateBadgeForSession(session);
   ensureBadgeTicker();
@@ -588,8 +638,8 @@ async function refreshSessionNow(tabId) {
 }
 
 async function handleRefreshAlarm(tabId) {
-  const sessions = await readSessions();
   const key = String(tabId);
+  const sessions = await readSessions();
   const session = sessions[key];
 
   if (!session || !session.enabled) {
@@ -632,21 +682,36 @@ async function handleRefreshAlarm(tabId) {
   await chrome.tabs.reload(tabId);
 
   const now = Date.now();
-  session.lastRefreshAt = now;
-  session.lastResetReason = "refresh";
-  session.refreshCount = Number(session.refreshCount || 0) + 1;
-  session.dueAt = now + secondsToMs(session.intervalSeconds);
-  session.nextRefreshAt = session.dueAt;
-  session.skipReason = null;
-  session.postponedUntil = null;
-  session.url = tab.url || session.url || "";
-  session.title = tab.title || session.title || "";
-  addHistory(session, "refresh", "Auto refresh", now);
+  const updated = await withSessions((current) => {
+    const target = current[key];
 
-  sessions[key] = session;
-  await writeSessions(sessions);
-  await scheduleAlarm(session);
-  await updateBadgeForSession(session);
+    if (!target || !target.enabled) {
+      return null;
+    }
+
+    target.lastRefreshAt = now;
+    target.lastResetReason = "refresh";
+    target.refreshCount = Number(target.refreshCount || 0) + 1;
+    target.dueAt = now + secondsToMs(target.intervalSeconds);
+    target.nextRefreshAt = target.dueAt;
+    target.skipReason = null;
+    target.postponedUntil = null;
+    target.url = tab.url || target.url || "";
+    target.title = tab.title || target.title || "";
+    addHistory(target, "refresh", "Auto refresh", now);
+
+    return target;
+  });
+
+  if (!updated) {
+    await clearAlarm(tabId);
+    await clearBadge(tabId);
+    await stopBadgeTickerIfIdle();
+    return;
+  }
+
+  await scheduleAlarm(updated);
+  await updateBadgeForSession(updated);
   ensureBadgeTicker();
 }
 
@@ -666,19 +731,45 @@ async function restoreContentScript(tabId) {
     return;
   }
 
-  session.url = tab.url || session.url || "";
-  session.title = tab.title || session.title || "";
-  sessions[String(tabId)] = session;
-  await writeSessions(sessions);
+  const updated = await withSessions((current) => {
+    const target = current[String(tabId)];
+
+    if (!target || !target.enabled) {
+      return null;
+    }
+
+    target.url = tab.url || target.url || "";
+    target.title = tab.title || target.title || "";
+
+    return target;
+  });
+
+  if (!updated) {
+    return;
+  }
+
   await injectContentScript(tabId);
-  await updateBadgeForSession(session);
+  await updateBadgeForSession(updated);
   ensureBadgeTicker();
   await processDueSession(tabId);
 }
 
 async function restoreAlarms() {
-  const sessions = await readSessions();
   const now = Date.now();
+  const sessions = await withSessions((current) => {
+    for (const session of Object.values(current)) {
+      if (!session || !session.enabled || session.paused) {
+        continue;
+      }
+
+      if (session.dueAt <= now && !session.skipReason) {
+        session.dueAt = now + secondsToMs(session.intervalSeconds);
+        session.nextRefreshAt = session.dueAt;
+      }
+    }
+
+    return current;
+  });
 
   await Promise.all(
     Object.values(sessions).map(async (session) => {
@@ -692,12 +783,6 @@ async function restoreAlarms() {
         return;
       }
 
-      if (session.dueAt <= now && !session.skipReason) {
-        session.dueAt = now + secondsToMs(session.intervalSeconds);
-        session.nextRefreshAt = session.dueAt;
-        await saveSession(session);
-      }
-
       await scheduleAlarm(session);
       await updateBadgeForSession(session);
     })
@@ -707,10 +792,19 @@ async function restoreAlarms() {
 }
 
 async function injectContentScript(tabId) {
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ["src/content.js"]
-  });
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["src/content.js"]
+    });
+
+    return true;
+  } catch (error) {
+    // Injection can fail on restricted pages or when the tab navigates away
+    // mid-flight. Click-reset / typing protection go quiet, but the timer-based
+    // refresh keeps working, so this is not treated as a session error.
+    return false;
+  }
 }
 
 async function scheduleAlarm(session) {
@@ -723,10 +817,11 @@ async function clearAlarm(tabId) {
 
 async function removeSession(tabId) {
   const normalizedTabId = normalizeTabId(tabId);
-  const sessions = await readSessions();
 
-  delete sessions[String(normalizedTabId)];
-  await writeSessions(sessions);
+  await withSessions((sessions) => {
+    delete sessions[String(normalizedTabId)];
+  });
+
   await clearAlarm(normalizedTabId);
   await clearBadge(normalizedTabId);
   await stopBadgeTickerIfIdle();
@@ -741,6 +836,7 @@ async function removeSessionsForHostname(hostname) {
 
   const sessions = await readSessions();
   const matchingTabIds = [];
+  const orphanTabIds = [];
 
   for (const session of Object.values(sessions)) {
     if (!session || typeof session.tabId !== "number") {
@@ -756,7 +852,7 @@ async function removeSessionsForHostname(hostname) {
       sessionHostname = getHostname(session.url);
 
       if (!sessionHostname) {
-        await removeSession(session.tabId);
+        orphanTabIds.push(session.tabId);
         continue;
       }
     }
@@ -766,44 +862,46 @@ async function removeSessionsForHostname(hostname) {
     }
   }
 
-  await Promise.all(matchingTabIds.map((tabId) => removeSession(tabId)));
+  const toRemove = [...new Set([...matchingTabIds, ...orphanTabIds])];
+  await Promise.all(toRemove.map((tabId) => removeSession(tabId)));
 
   return matchingTabIds.length;
 }
 
 async function setTabError(tabId, error, url = "") {
   const normalizedTabId = normalizeTabId(tabId);
-  const sessions = await readSessions();
-  const previousSession = sessions[String(normalizedTabId)];
-  const history = normalizeHistory(previousSession && previousSession.history);
-  history.push(createHistoryEntry("error", error));
 
-  sessions[String(normalizedTabId)] = {
-    tabId: normalizedTabId,
-    enabled: false,
-    intervalSeconds: null,
-    dueAt: null,
-    paused: false,
-    pausedRemainingMs: null,
-    nextRefreshAt: null,
-    skipReason: "error",
-    postponedUntil: null,
-    history: history.slice(-MAX_HISTORY_ITEMS),
-    error,
-    errorAt: Date.now(),
-    url
-  };
+  await withSessions((sessions) => {
+    const previousSession = sessions[String(normalizedTabId)];
+    const history = normalizeHistory(previousSession && previousSession.history);
+    history.push(createHistoryEntry("error", error));
 
-  await writeSessions(sessions);
+    sessions[String(normalizedTabId)] = {
+      tabId: normalizedTabId,
+      enabled: false,
+      intervalSeconds: null,
+      dueAt: null,
+      paused: false,
+      pausedRemainingMs: null,
+      nextRefreshAt: null,
+      skipReason: "error",
+      postponedUntil: null,
+      history: history.slice(-MAX_HISTORY_ITEMS),
+      error,
+      errorAt: Date.now(),
+      url
+    };
+  });
+
   await clearAlarm(normalizedTabId);
   await setErrorBadge(normalizedTabId);
   await stopBadgeTickerIfIdle();
 }
 
 async function saveSession(session) {
-  const sessions = await readSessions();
-  sessions[String(session.tabId)] = normalizeSession(session);
-  await writeSessions(sessions);
+  await withSessions((sessions) => {
+    sessions[String(session.tabId)] = normalizeSession(session);
+  });
 }
 
 async function readSessions() {
@@ -848,14 +946,20 @@ async function getDomainRule(hostname) {
   return rules[normalizeHostname(hostname)] || null;
 }
 
+// A short periodic alarm keeps the toolbar countdown moving. This replaces a
+// 1s setInterval, which was unreliable (lost when the MV3 service worker sleeps)
+// and wasteful (it kept the worker artificially alive). Badge text is derived
+// from dueAt on demand, so precision is coarse but the display never freezes.
 function ensureBadgeTicker() {
-  if (badgeTimerId) {
-    return;
-  }
+  chrome.alarms.get(BADGE_ALARM)
+    .then((existing) => {
+      if (!existing) {
+        return chrome.alarms.create(BADGE_ALARM, { periodInMinutes: BADGE_TICK_MINUTES });
+      }
 
-  badgeTimerId = setInterval(() => {
-    updateAllBadges().catch(() => {});
-  }, BADGE_TICK_MS);
+      return null;
+    })
+    .catch(() => {});
 
   updateAllBadges().catch(() => {});
 }
@@ -864,12 +968,11 @@ async function stopBadgeTickerIfIdle() {
   const sessions = await readSessions();
   const hasActiveSession = Object.values(sessions).some((session) => session && session.enabled);
 
-  if (hasActiveSession || !badgeTimerId) {
+  if (hasActiveSession) {
     return;
   }
 
-  clearInterval(badgeTimerId);
-  badgeTimerId = null;
+  await chrome.alarms.clear(BADGE_ALARM);
 }
 
 async function updateAllBadges() {
@@ -1212,18 +1315,19 @@ function addHistory(session, type, label, at = Date.now()) {
 
 async function updateSessionSettings(tabId, settings) {
   const normalizedTabId = normalizeTabId(tabId);
-  const sessions = await readSessions();
   const key = String(normalizedTabId);
-  const session = getEnabledSession(sessions, key);
   const normalizedSettings = normalizeSettings(settings);
+  const session = await withSessions((sessions) => {
+    const current = getEnabledSession(sessions, key);
 
-  session.smartMode = normalizedSettings.smartMode;
-  session.activeTabOnly = normalizedSettings.activeTabOnly;
-  session.typingProtectionEnabled = normalizedSettings.typingProtectionEnabled;
-  addHistory(session, "settings", "Settings updated");
+    current.smartMode = normalizedSettings.smartMode;
+    current.activeTabOnly = normalizedSettings.activeTabOnly;
+    current.typingProtectionEnabled = normalizedSettings.typingProtectionEnabled;
+    addHistory(current, "settings", "Settings updated");
 
-  sessions[key] = session;
-  await writeSessions(sessions);
+    return current;
+  });
+
   await updateBadgeForSession(session);
   await processDueSession(normalizedTabId);
 
@@ -1232,20 +1336,30 @@ async function updateSessionSettings(tabId, settings) {
 }
 
 async function postponeSession(session, reason, label) {
-  const sessions = await readSessions();
   const key = String(session.tabId);
   const now = Date.now();
+  const updated = await withSessions((sessions) => {
+    const current = sessions[key];
 
-  session.skipReason = reason;
-  session.postponedUntil = now + POSTPONE_DELAY_MS;
-  session.dueAt = session.postponedUntil;
-  session.nextRefreshAt = session.dueAt;
-  addHistory(session, reason === "inactive" ? "skipped-inactive" : "postponed-typing", label, now);
+    if (!current || !current.enabled) {
+      return null;
+    }
 
-  sessions[key] = session;
-  await writeSessions(sessions);
-  await scheduleAlarm(session);
-  await updateBadgeForSession(session);
+    current.skipReason = reason;
+    current.postponedUntil = now + POSTPONE_DELAY_MS;
+    current.dueAt = current.postponedUntil;
+    current.nextRefreshAt = current.dueAt;
+    addHistory(current, reason === "inactive" ? "skipped-inactive" : "postponed-typing", label, now);
+
+    return current;
+  });
+
+  if (!updated) {
+    return;
+  }
+
+  await scheduleAlarm(updated);
+  await updateBadgeForSession(updated);
   ensureBadgeTicker();
 }
 
@@ -1261,9 +1375,14 @@ async function isTabCurrentlyActive(tab) {
 async function processDueSession(tabId) {
   const sessions = await readSessions();
   const session = sessions[String(tabId)];
-  const isDue = Date.now() >= Number(session && session.dueAt);
 
-  if (!session || !session.enabled || session.paused || (!isDue && !session.skipReason)) {
+  if (!session || !session.enabled || session.paused) {
+    return;
+  }
+
+  const isDue = Date.now() >= Number(session.dueAt);
+
+  if (!isDue && !session.skipReason) {
     return;
   }
 
@@ -1296,12 +1415,4 @@ function getUnsupportedReason(urlValue) {
   }
 
   return "";
-}
-
-function getErrorMessage(error) {
-  if (error && typeof error.message === "string") {
-    return error.message;
-  }
-
-  return String(error || "Unexpected error.");
 }

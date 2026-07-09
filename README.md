@@ -24,6 +24,7 @@ typing without a click does not restart the timer.
 - Shows an `Active tabs` overview with quick open/stop controls.
 - Includes an Options page for managing saved and blocked domains.
 - Shows a compact status badge on the extension icon.
+- Follows the system light/dark theme automatically.
 - Uses Manifest V3 with no backend, no external APIs, and no CDN dependencies.
 - Includes source SVG plus Chrome PNG icon sizes.
 
@@ -107,6 +108,11 @@ The toolbar badge shows a compact countdown while refresh is active:
 - Orange `WAIT`: postponed because typing or unsaved input is detected.
 - Red `!`: blocked/error state.
 
+The badge is driven by a periodic `chrome.alarms` tick rather than a persistent
+`setInterval`, so it stays reliable after the Manifest V3 service worker sleeps.
+The trade-off is coarser precision: the countdown refreshes roughly every 30
+seconds instead of every second.
+
 ## Popup UI
 
 The popup uses a product-first Google/Chrome-style Material surface: the header,
@@ -134,6 +140,7 @@ browser session ends.
 ```text
 manifest.json       Chrome extension manifest
 DESIGN.md           Stitch-inspired visual and icon system
+tokens.css          Shared design tokens (light + dark palettes)
 popup.html          Extension popup markup
 popup.css           Popup styling
 options.html        Domain rules manager
@@ -142,6 +149,7 @@ src/background.js   Per-tab timer, alarms, reload flow
 src/content.js      Page click detection and safe-input guard state
 src/popup.js        Popup state and controls
 src/options.js      Saved and blocked domain rules UI
+src/shared.js       Helpers shared by the worker, popup, and options
 icons/              Source SVG and PNG extension icons
 test-page.html      Local manual QA page
 ```

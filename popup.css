@@ -1,24 +1,6 @@
+/* Design tokens live in tokens.css. Only the ring-color alias is popup-local. */
 :root {
-  color-scheme: light;
-  --bg: #f8fafd;
-  --surface: #ffffff;
-  --surface-muted: #f1f4f8;
-  --surface-hover: #f4f8ff;
-  --text: #202124;
-  --muted: #5f6368;
-  --subtle: #80868b;
-  --line: #dfe3eb;
-  --line-soft: #edf1f7;
-  --blue: #1a73e8;
-  --blue-hover: #155fc0;
-  --blue-bg: #e8f0fe;
-  --green: #188038;
-  --amber: #f29900;
-  --red: #d93025;
   --ring-color: var(--blue);
-  --shadow: 0 10px 28px rgba(60, 64, 67, 0.08);
-  --shadow-soft: 0 3px 10px rgba(60, 64, 67, 0.06);
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -94,7 +76,7 @@ h1 {
   padding: 0 11px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.76);
+  background: var(--surface);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -111,11 +93,11 @@ h1 {
 }
 
 .state-label.is-active {
-  color: var(--green);
+  color: var(--blue);
 }
 
 .state-label.is-active::before {
-  background: var(--green);
+  background: var(--blue);
 }
 
 .state-label.is-waiting,
@@ -212,7 +194,7 @@ h2 {
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -311,7 +293,7 @@ h2 {
 }
 
 .custom-field input:hover {
-  border-color: #c6ccd6;
+  border-color: var(--line-strong);
 }
 
 .custom-field input:disabled {
@@ -331,7 +313,7 @@ h2 {
   min-height: 72px;
   padding: 10px;
   border: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--surface);
 }
 
 .setting-row + .setting-row {
@@ -378,10 +360,10 @@ h2 {
   width: 42px;
   height: 24px;
   margin: 0;
-  border: 1px solid #c8d0dc;
+  border: 1px solid var(--toggle-border);
   border-radius: 999px;
   appearance: none;
-  background: #e9edf3;
+  background: var(--toggle-bg);
   cursor: pointer;
   transition: background 160ms var(--ease), border-color 160ms var(--ease);
 }
@@ -394,7 +376,7 @@ h2 {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--toggle-knob);
   box-shadow: 0 1px 3px rgba(60, 64, 67, 0.24);
   transition: transform 160ms var(--ease);
 }
@@ -425,12 +407,12 @@ h2 {
   display: grid;
   gap: 15px;
   padding: 18px;
-  border: 1px solid #d9dee8;
+  border: 1px solid var(--line);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, #ffffff 0%, #ffffff 74%, #fbfcff 100%);
+    linear-gradient(180deg, var(--surface) 0%, var(--surface) 74%, var(--surface-raised) 100%);
   overflow: hidden;
-  box-shadow: 0 14px 34px rgba(60, 64, 67, 0.1);
+  box-shadow: var(--shadow-card);
 }
 
 .status-card::before {
@@ -486,8 +468,8 @@ h2 {
   border-radius: 50%;
   padding: 0;
   background:
-    radial-gradient(circle at 50% 50%, #ffffff 0%, #ffffff 58%, transparent 59%),
-    radial-gradient(circle at 50% 50%, rgba(232, 240, 254, 0.8) 0%, rgba(232, 240, 254, 0.16) 66%, transparent 70%);
+    radial-gradient(circle at 50% 50%, var(--surface) 0%, var(--surface) 58%, transparent 59%),
+    radial-gradient(circle at 50% 50%, rgba(138, 180, 248, 0.16) 0%, rgba(138, 180, 248, 0.06) 66%, transparent 70%);
   color: inherit;
   cursor: pointer;
   place-items: center;
@@ -527,7 +509,7 @@ h2 {
 }
 
 .progress-track {
-  stroke: #e5e7eb;
+  stroke: var(--track);
 }
 
 .progress-value {
@@ -548,7 +530,7 @@ h2 {
 
 .status-kicker {
   display: block;
-  color: #596174;
+  color: var(--muted);
   font-size: 11px;
   font-weight: 650;
   line-height: 1;
@@ -559,7 +541,7 @@ h2 {
   display: block;
   max-width: 132px;
   overflow: hidden;
-  color: #0b1f44;
+  color: var(--countdown-ink);
   font-size: 36px;
   font-weight: 650;
   line-height: 1;
@@ -614,7 +596,7 @@ h2 {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .stats-list div {
@@ -639,7 +621,7 @@ h2 {
 .stats-list dt {
   grid-column: 2;
   margin: 0;
-  color: #596174;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.2;
@@ -649,7 +631,7 @@ h2 {
   grid-column: 2;
   margin: 0;
   overflow: hidden;
-  color: #101828;
+  color: var(--text-strong);
   font-size: 20px;
   font-weight: 500;
   line-height: 1.25;
@@ -663,7 +645,7 @@ h2 {
   grid-row: 1 / span 2;
   width: 24px;
   height: 24px;
-  color: #4f5664;
+  color: var(--muted);
   place-items: center;
 }
 
@@ -672,7 +654,7 @@ h2 {
   max-width: 160px;
   overflow: hidden;
   color: var(--subtle);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -696,7 +678,7 @@ h2 {
   overflow: hidden;
   border: 1px solid var(--line-soft);
   border-radius: 14px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .site-actions .secondary-button {
@@ -758,7 +740,7 @@ h2 {
   overflow: auto;
   border: 1px solid var(--line-soft);
   border-radius: 14px;
-  background: #ffffff;
+  background: var(--surface);
   list-style: none;
 }
 
@@ -823,13 +805,13 @@ h2 {
   padding: 8px;
   border: 1px solid transparent;
   border-radius: 12px;
-  background: #f8fafd;
+  background: var(--surface-muted);
   transition: background 160ms var(--ease), border-color 160ms var(--ease);
 }
 
 .active-tab-item:hover {
   background: var(--surface-hover);
-  border-color: #d8e0ec;
+  border-color: var(--line-strong);
 }
 
 .active-tab-main {
@@ -846,7 +828,7 @@ h2 {
 
 .active-tab-main strong {
   color: var(--text);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.3;
 }
@@ -854,7 +836,7 @@ h2 {
 .active-tab-main span,
 .active-tabs-list > li:not(.active-tab-item) {
   color: var(--subtle);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.3;
 }
 
@@ -870,7 +852,7 @@ h2 {
   border-radius: 999px;
   background: var(--blue-bg);
   color: var(--blue);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 650;
   line-height: 1;
 }
@@ -881,7 +863,7 @@ h2 {
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: background 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease);
@@ -890,7 +872,7 @@ h2 {
 .active-tab-action:hover {
   background: var(--blue-bg);
   color: var(--blue);
-  border-color: #c7d7fb;
+  border-color: var(--blue-border);
 }
 
 .action-group {
@@ -915,7 +897,7 @@ h2 {
   border: 0;
   border-radius: 12px;
   background: var(--blue);
-  color: #ffffff;
+  color: var(--on-accent);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -987,7 +969,7 @@ h2 {
 }
 
 .secondary-button:hover {
-  border-color: #c7d7fb;
+  border-color: var(--blue-border);
   background: var(--blue-bg);
   color: var(--blue);
 }
@@ -1003,7 +985,7 @@ h2 {
 .secondary-button.is-danger:hover,
 .secondary-button.is-danger:focus-visible {
   border-color: rgba(217, 48, 37, 0.24);
-  background: #fce8e6;
+  background: var(--red-bg);
   color: var(--red);
 }
 

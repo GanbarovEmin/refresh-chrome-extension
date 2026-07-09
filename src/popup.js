@@ -1,3 +1,5 @@
+const { getErrorMessage, formatIntervalLabel } = self.RefreshShared;
+
 const stateLabel = document.querySelector("#tab-state");
 const statusPanel = document.querySelector("#status-panel");
 const ringActionButton = document.querySelector("#ring-action");
@@ -732,16 +734,6 @@ function getProgressRatio(session, remainingMs) {
   return remainingMs / intervalMs;
 }
 
-function formatIntervalLabel(intervalSeconds) {
-  const minutes = intervalSeconds / 60;
-
-  if (Number.isInteger(minutes)) {
-    return `${minutes} min`;
-  }
-
-  return `${trimNumber(minutes)} min`;
-}
-
 function formatLastResetReason(reason) {
   if (reason === "click") {
     return "Click";
@@ -879,16 +871,19 @@ function renderActiveSessions(sessions = [], total = sessions.length) {
     title.textContent = session.title || session.hostname || "Untitled";
     title.title = title.textContent;
     meta.textContent = `${session.hostname || "local"} · ${formatIntervalLabel(session.intervalSeconds)} · ${formatActiveTabStatus(session)}`;
+    const tabName = session.title || session.hostname || "tab";
     openButton.className = "active-tab-action";
     openButton.type = "button";
     openButton.textContent = "Open";
     openButton.dataset.action = "open";
     openButton.dataset.tabId = String(session.tabId);
+    openButton.setAttribute("aria-label", `Open ${tabName}`);
     stopButtonItem.className = "active-tab-action";
     stopButtonItem.type = "button";
     stopButtonItem.textContent = "Stop";
     stopButtonItem.dataset.action = "stop";
     stopButtonItem.dataset.tabId = String(session.tabId);
+    stopButtonItem.setAttribute("aria-label", `Stop refresh on ${tabName}`);
 
     main.append(title, meta);
 
@@ -1093,14 +1088,6 @@ function getPrimaryButtonLabel() {
   }
 
   return toggleButton.textContent.trim() || "Start refresh";
-}
-
-function getErrorMessage(error) {
-  if (error && typeof error.message === "string") {
-    return error.message;
-  }
-
-  return String(error || "Unexpected error.");
 }
 
 window.addEventListener("unload", () => {

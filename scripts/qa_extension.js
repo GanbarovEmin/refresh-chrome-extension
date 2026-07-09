@@ -8,7 +8,8 @@ const SOURCE_FILES = [
   "src/background.js",
   "src/content.js",
   "src/popup.js",
-  "src/options.js"
+  "src/options.js",
+  "src/shared.js"
 ];
 const HTML_FILES = [
   "popup.html",
