@@ -1,3 +1,5 @@
+const { getErrorMessage, formatIntervalLabel } = self.RefreshShared;
+
 const rulesList = document.querySelector("#rules-list");
 const reloadButton = document.querySelector("#reload-rules");
 const searchInput = document.querySelector("#rules-search");
@@ -79,6 +81,7 @@ function renderRules(rules) {
     deleteButton.textContent = rule.type === "never-run" ? "Allow domain" : "Remove profile";
     deleteButton.dataset.action = "delete";
     deleteButton.dataset.hostname = rule.hostname;
+    deleteButton.setAttribute("aria-label", `${deleteButton.textContent} for ${rule.hostname}`);
     hostname.textContent = rule.hostname;
     badge.textContent = rule.type === "never-run" ? "Never run" : "Saved profile";
     meta.className = "rule-meta";
@@ -94,6 +97,7 @@ function renderRules(rules) {
       blockButton.textContent = "Never run";
       blockButton.dataset.action = "never-run";
       blockButton.dataset.hostname = rule.hostname;
+      blockButton.setAttribute("aria-label", `Never run ${rule.hostname}`);
       actions.append(blockButton);
     }
 
@@ -159,16 +163,6 @@ function getRuleMeta(rule) {
   return `${formatIntervalLabel(rule.intervalSeconds)} · Smart ${formatOnOff(rule.smartMode)} · Active tab only ${formatOnOff(rule.activeTabOnly)} · Typing guard ${formatOnOff(rule.typingProtectionEnabled)} · updated ${updatedAt}`;
 }
 
-function formatIntervalLabel(intervalSeconds) {
-  const minutes = Number(intervalSeconds) / 60;
-
-  if (Number.isInteger(minutes)) {
-    return `${minutes} min`;
-  }
-
-  return `${Number(minutes.toFixed(2))} min`;
-}
-
 function formatOnOff(value) {
   return value ? "on" : "off";
 }
@@ -197,12 +191,4 @@ function renderError(message) {
   error.className = "empty-state";
   error.textContent = message;
   rulesList.append(error);
-}
-
-function getErrorMessage(error) {
-  if (error && typeof error.message === "string") {
-    return error.message;
-  }
-
-  return String(error || "Unexpected error.");
 }
