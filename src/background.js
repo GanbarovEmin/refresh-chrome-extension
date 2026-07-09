@@ -1,6 +1,9 @@
 importScripts("/src/shared.js");
 
-const { getErrorMessage } = self.RefreshShared;
+const { getErrorMessage, getMsg } = self.RefreshShared;
+
+const PREFERRED_INTERVAL_KEY = "refresh.preferredInterval";
+const SAFETY_SETTINGS_KEY = "refresh.safetySettings.v1";
 
 const SESSION_KEY = "refresh.sessions.v1";
 const DOMAIN_RULES_KEY = "refresh.domainRules.v1";
@@ -94,6 +97,12 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   }).catch(() => {});
 });
 
+if (chrome.commands && chrome.commands.onCommand) {
+  chrome.commands.onCommand.addListener((command) => {
+    handleCommand(command).catch(() => {});
+  });
+}
+
 chrome.runtime.onStartup.addListener(() => {
   restoreAlarms().catch(() => {});
 });
@@ -104,7 +113,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 async function handleMessage(message, sender) {
   if (!message || typeof message.type !== "string") {
-    return { ok: false, error: "Unknown message." };
+    return { ok: false, error: getMsg("errorUnknownMessage") };
   }
 
   if (message.type === "REFRESH_GET_STATE") {
@@ -133,6 +142,10 @@ async function handleMessage(message, sender) {
 
   if (message.type === "REFRESH_GET_DOMAIN_RULES") {
     return getDomainRulesResponse();
+  }
+
+  if (message.type === "REFRESH_IMPORT_DOMAIN_RULES") {
+    return importDomainRules(message.rules);
   }
 
   if (message.type === "REFRESH_GET_ACTIVE_SESSIONS") {
@@ -211,7 +224,7 @@ async function startSession(message) {
     if (rule && rule.type === "never-run") {
       return {
         ok: false,
-        error: "Refresh is disabled for this domain. Remove the rule in Options to run it here."
+        error: getMsg("errorDomainDisabled")
       };
     }
   }
@@ -299,7 +312,7 @@ async function saveSiteProfile(tabId, profile = {}) {
   const hostname = getHostname(tab.url);
 
   if (!hostname) {
-    return { ok: false, error: "This page does not have a supported domain." };
+    return { ok: false, error: getMsg("errorNoDomain") };
   }
 
   const intervalSeconds = normalizeIntervalSeconds(profile.intervalSeconds);
@@ -327,7 +340,7 @@ async function setNeverRunRule(tabId) {
   const hostname = getHostname(tab.url);
 
   if (!hostname) {
-    return { ok: false, error: "This page does not have a supported domain." };
+    return { ok: false, error: getMsg("errorNoDomain") };
   }
 
   const rules = await readDomainRules();
@@ -348,7 +361,7 @@ async function deleteDomainRule(hostname) {
   const normalizedHostname = normalizeHostname(hostname);
 
   if (!normalizedHostname) {
-    return { ok: false, error: "Choose a valid domain." };
+    return { ok: false, error: getMsg("errorInvalidDomain") };
   }
 
   const rules = await readDomainRules();
@@ -363,7 +376,7 @@ async function setNeverRunDomain(hostname) {
   const normalizedHostname = normalizeHostname(hostname);
 
   if (!normalizedHostname) {
-    return { ok: false, error: "Choose a valid domain." };
+    return { ok: false, error: getMsg("errorInvalidDomain") };
   }
 
   const rules = await readDomainRules();
@@ -387,6 +400,92 @@ async function getDomainRulesResponse() {
     ok: true,
     rules: Object.values(rules).sort((a, b) => String(a.hostname).localeCompare(String(b.hostname)))
   };
+}
+
+async function importDomainRules(incoming) {
+  const list = Array.isArray(incoming)
+    ? incoming
+    : (incoming && Array.isArray(incoming.rules) ? incoming.rules : null);
+
+  if (!list) {
+    return { ok: false, error: getMsg("optionsImportError") };
+  }
+
+  const rules = await readDomainRules();
+  let imported = 0;
+  let skipped = 0;
+
+  for (const entry of list) {
+    const normalized = normalizeDomainRule(entry && entry.hostname, entry);
+
+    if (normalized) {
+      rules[normalized.hostname] = normalized;
+      imported += 1;
+    } else {
+      skipped += 1;
+    }
+  }
+
+  await writeDomainRules(rules);
+
+  return { ok: true, imported, skipped };
+}
+
+async function handleCommand(command) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (!tab || typeof tab.id !== "number") {
+    return;
+  }
+
+  const sessions = await readSessions();
+  const session = sessions[String(tab.id)];
+  const isRunning = Boolean(session && session.enabled);
+
+  if (command === "refresh-now") {
+    if (isRunning) {
+      await refreshSessionNow(tab.id);
+    }
+
+    return;
+  }
+
+  if (command === "toggle-refresh") {
+    if (isRunning && session.paused) {
+      await resumeSession(tab.id);
+    } else if (isRunning) {
+      await pauseSession(tab.id);
+    } else {
+      const preferred = await resolvePreferredInterval();
+      await startSession({
+        tabId: tab.id,
+        intervalSeconds: preferred.intervalSeconds,
+        settings: preferred.settings
+      });
+    }
+  }
+}
+
+async function resolvePreferredInterval() {
+  const data = await chrome.storage.local.get([PREFERRED_INTERVAL_KEY, SAFETY_SETTINGS_KEY]);
+  const preferred = data[PREFERRED_INTERVAL_KEY];
+  const settings = normalizeSettings(data[SAFETY_SETTINGS_KEY] || {});
+
+  let intervalSeconds = MIN_INTERVAL_SECONDS;
+
+  if (typeof preferred === "number" && Number.isFinite(preferred)) {
+    intervalSeconds = Math.round(preferred * 60);
+  } else if (preferred && typeof preferred === "object" && Number.isFinite(Number(preferred.intervalSeconds))) {
+    intervalSeconds = Number(preferred.intervalSeconds);
+  }
+
+  try {
+    intervalSeconds = normalizeIntervalSeconds(intervalSeconds);
+  } catch (error) {
+    intervalSeconds = MIN_INTERVAL_SECONDS;
+  }
+
+  return { intervalSeconds, settings };
 }
 
 async function getActiveSessionsResponse(currentTabId) {
@@ -1076,7 +1175,7 @@ function normalizeTabId(tabId) {
   const normalized = Number(tabId);
 
   if (!Number.isInteger(normalized) || normalized < 0) {
-    throw new Error("No active tab was found.");
+    throw new Error(getMsg("errorNoTab"));
   }
 
   return normalized;
@@ -1118,7 +1217,7 @@ function getEnabledSession(sessions, key) {
   const session = sessions[key];
 
   if (!session || !session.enabled) {
-    throw new Error("Refresh is not running on this tab.");
+    throw new Error(getMsg("errorNotRunning"));
   }
 
   return session;
@@ -1141,7 +1240,7 @@ function normalizeIntervalSeconds(intervalSeconds, legacyIntervalMinutes) {
     }
   }
 
-  throw new Error("Choose an interval from 1 to 999 minutes.");
+  throw new Error(getMsg("errorIntervalRange"));
 }
 
 function normalizeSettings(settings = {}) {
@@ -1395,7 +1494,7 @@ function secondsToMs(seconds) {
 
 function getUnsupportedReason(urlValue) {
   if (!urlValue) {
-    return "This tab cannot be refreshed by the extension.";
+    return getMsg("errorUnsupportedTab");
   }
 
   let url;
@@ -1403,15 +1502,15 @@ function getUnsupportedReason(urlValue) {
   try {
     url = new URL(urlValue);
   } catch (error) {
-    return "This tab has an unsupported URL.";
+    return getMsg("errorUnsupportedUrl");
   }
 
   if (!SUPPORTED_PROTOCOLS.includes(url.protocol)) {
-    return "Refresh cannot run on browser system pages.";
+    return getMsg("errorSystemPage");
   }
 
   if (url.hostname === "chrome.google.com" || url.hostname === "chromewebstore.google.com") {
-    return "Chrome blocks extensions from running on the Chrome Web Store.";
+    return getMsg("errorWebStore");
   }
 
   return "";

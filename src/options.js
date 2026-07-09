@@ -1,7 +1,10 @@
-const { getErrorMessage, formatIntervalLabel } = self.RefreshShared;
+const { getErrorMessage, formatIntervalLabel, getMsg, localizePage } = self.RefreshShared;
 
 const rulesList = document.querySelector("#rules-list");
 const reloadButton = document.querySelector("#reload-rules");
+const exportButton = document.querySelector("#export-rules");
+const importButton = document.querySelector("#import-rules");
+const importFileInput = document.querySelector("#import-file");
 const searchInput = document.querySelector("#rules-search");
 const rulesSummary = document.querySelector("#rules-summary");
 
@@ -12,8 +15,24 @@ init().catch((error) => {
 });
 
 async function init() {
+  localizePage();
+
   reloadButton.addEventListener("click", () => {
     loadRules().catch((error) => {
+      renderError(getErrorMessage(error));
+    });
+  });
+
+  exportButton.addEventListener("click", () => {
+    exportRules();
+  });
+
+  importButton.addEventListener("click", () => {
+    importFileInput.click();
+  });
+
+  importFileInput.addEventListener("change", () => {
+    handleImportFile().catch((error) => {
       renderError(getErrorMessage(error));
     });
   });
@@ -57,7 +76,7 @@ function renderRules(rules) {
   if (!rules.length) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = allRules.length ? "No matching domain rules." : "No domain rules yet.";
+    empty.textContent = allRules.length ? getMsg("optionsEmptySearch") : getMsg("optionsEmpty");
     rulesList.append(empty);
     return;
   }
@@ -78,12 +97,12 @@ function renderRules(rules) {
     actions.className = "rule-actions";
     deleteButton.className = "rule-action is-danger";
     deleteButton.type = "button";
-    deleteButton.textContent = rule.type === "never-run" ? "Allow domain" : "Remove profile";
+    deleteButton.textContent = rule.type === "never-run" ? getMsg("ruleAllow") : getMsg("ruleRemove");
     deleteButton.dataset.action = "delete";
     deleteButton.dataset.hostname = rule.hostname;
-    deleteButton.setAttribute("aria-label", `${deleteButton.textContent} for ${rule.hostname}`);
+    deleteButton.setAttribute("aria-label", getMsg("ruleActionLabel", [deleteButton.textContent, rule.hostname]));
     hostname.textContent = rule.hostname;
-    badge.textContent = rule.type === "never-run" ? "Never run" : "Saved profile";
+    badge.textContent = rule.type === "never-run" ? getMsg("ruleBadgeBlocked") : getMsg("ruleBadgeSaved");
     meta.className = "rule-meta";
     meta.textContent = getRuleMeta(rule);
 
@@ -94,10 +113,10 @@ function renderRules(rules) {
       const blockButton = document.createElement("button");
       blockButton.className = "rule-action";
       blockButton.type = "button";
-      blockButton.textContent = "Never run";
+      blockButton.textContent = getMsg("ruleNeverRun");
       blockButton.dataset.action = "never-run";
       blockButton.dataset.hostname = rule.hostname;
-      blockButton.setAttribute("aria-label", `Never run ${rule.hostname}`);
+      blockButton.setAttribute("aria-label", getMsg("ruleNeverRunLabel", rule.hostname));
       actions.append(blockButton);
     }
 
@@ -121,7 +140,7 @@ function renderRulesSummary(visibleCount) {
   const savedCount = allRules.filter((rule) => rule.type === "saved-profile").length;
   const blockedCount = allRules.filter((rule) => rule.type === "never-run").length;
 
-  rulesSummary.textContent = `${visibleCount} shown · ${savedCount} saved · ${blockedCount} blocked`;
+  rulesSummary.textContent = getMsg("optionsSummary", [String(visibleCount), String(savedCount), String(blockedCount)]);
 }
 
 async function handleRuleAction(action, hostname) {
@@ -157,21 +176,27 @@ function getRuleMeta(rule) {
   const updatedAt = formatTimestamp(rule.updatedAt);
 
   if (rule.type === "never-run") {
-    return `Blocked domain · updated ${updatedAt}`;
+    return getMsg("ruleMetaBlocked", updatedAt);
   }
 
-  return `${formatIntervalLabel(rule.intervalSeconds)} · Smart ${formatOnOff(rule.smartMode)} · Active tab only ${formatOnOff(rule.activeTabOnly)} · Typing guard ${formatOnOff(rule.typingProtectionEnabled)} · updated ${updatedAt}`;
+  return getMsg("ruleMetaSaved", [
+    formatIntervalLabel(rule.intervalSeconds),
+    formatOnOff(rule.smartMode),
+    formatOnOff(rule.activeTabOnly),
+    formatOnOff(rule.typingProtectionEnabled),
+    updatedAt
+  ]);
 }
 
 function formatOnOff(value) {
-  return value ? "on" : "off";
+  return value ? getMsg("onoffOn") : getMsg("onoffOff");
 }
 
 function formatTimestamp(timestamp) {
   const value = Number(timestamp);
 
   if (!Number.isFinite(value) || value <= 0) {
-    return "unknown";
+    return getMsg("valueUnknown");
   }
 
   return new Date(value).toLocaleString([], {
@@ -185,10 +210,60 @@ function formatTimestamp(timestamp) {
 
 function renderError(message) {
   rulesList.textContent = "";
-  rulesSummary.textContent = "Could not load rules.";
+  rulesSummary.textContent = getMsg("optionsLoadError");
 
   const error = document.createElement("p");
   error.className = "empty-state";
   error.textContent = message;
   rulesList.append(error);
+}
+
+function exportRules() {
+  const payload = {
+    kind: "refresh-domain-rules",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    rules: allRules
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "refresh-domain-rules.json";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function handleImportFile() {
+  const file = importFileInput.files && importFileInput.files[0];
+  importFileInput.value = "";
+
+  if (!file) {
+    return;
+  }
+
+  let parsed;
+
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch (error) {
+    renderError(getMsg("optionsImportError"));
+    return;
+  }
+
+  const response = await chrome.runtime.sendMessage({
+    type: "REFRESH_IMPORT_DOMAIN_RULES",
+    rules: parsed
+  });
+
+  if (!response.ok) {
+    throw new Error(response.error);
+  }
+
+  await loadRules();
+  rulesSummary.textContent = getMsg("optionsImported", [String(response.imported), String(response.skipped)]);
 }

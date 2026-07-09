@@ -12,14 +12,14 @@
       <header class="options-header">
         <img src="icons/icon_48.png" alt="" width="48" height="48">
         <div>
-          <h1>Refresh site controls</h1>
-          <p>Manage saved profiles and blocked domains. Saved sites never auto-start silently; use the popup to apply them.</p>
+          <h1 data-i18n="optionsTitle">Refresh site controls</h1>
+          <p data-i18n="optionsSubtitle">Manage saved profiles and blocked domains. Saved sites never auto-start silently; use the popup to apply them.</p>
         </div>
       </header>
 
       <section class="info-card" aria-labelledby="profiles-title">
-        <h2 id="profiles-title">How site profiles work</h2>
-        <p>
+        <h2 id="profiles-title" data-i18n="optionsHowTitle">How site profiles work</h2>
+        <p data-i18n="optionsHowDesc">
           A saved profile stores interval and safety settings for a hostname. A blocked domain prevents new refresh sessions
           until the rule is removed here.
         </p>
@@ -28,25 +28,44 @@
       <section class="rules-card" aria-labelledby="rules-title">
         <div class="section-row">
           <div>
-            <h2 id="rules-title">Domain rules</h2>
-            <p id="rules-summary" class="rules-summary">Loading rules...</p>
+            <h2 id="rules-title" data-i18n="optionsRulesTitle">Domain rules</h2>
+            <p id="rules-summary" class="rules-summary" data-i18n="optionsLoading">Loading rules...</p>
           </div>
-          <button id="reload-rules" type="button" aria-label="Refresh rules">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M20 11a8 8 0 0 0-14.5-4.6"></path>
-              <path d="M4 5.5v5h5"></path>
-              <path d="M4 13a8 8 0 0 0 14.5 4.6"></path>
-              <path d="M20 18.5v-5h-5"></path>
-            </svg>
-            <span>Refresh</span>
-          </button>
+          <div class="rules-controls">
+            <button id="export-rules" class="rule-action" type="button" aria-label="Export domain rules" data-i18n-label="optionsExportLabel">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 3v12"></path>
+                <path d="M8 11l4 4 4-4"></path>
+                <path d="M5 21h14"></path>
+              </svg>
+              <span data-i18n="optionsExport">Export</span>
+            </button>
+            <button id="import-rules" class="rule-action" type="button" aria-label="Import domain rules" data-i18n-label="optionsImportLabel">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M12 21V9"></path>
+                <path d="M8 13l4-4 4 4"></path>
+                <path d="M5 3h14"></path>
+              </svg>
+              <span data-i18n="optionsImport">Import</span>
+            </button>
+            <button id="reload-rules" type="button" aria-label="Refresh rules" data-i18n-label="optionsRefreshLabel">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M20 11a8 8 0 0 0-14.5-4.6"></path>
+                <path d="M4 5.5v5h5"></path>
+                <path d="M4 13a8 8 0 0 0 14.5 4.6"></path>
+                <path d="M20 18.5v-5h-5"></path>
+              </svg>
+              <span data-i18n="optionsRefresh">Refresh</span>
+            </button>
+          </div>
         </div>
+        <input id="import-file" type="file" accept="application/json,.json" hidden>
         <label class="rules-search" for="rules-search">
-          <span>Search domains</span>
-          <input id="rules-search" type="search" autocomplete="off" placeholder="example.com">
+          <span data-i18n="optionsSearchLabel">Search domains</span>
+          <input id="rules-search" type="search" autocomplete="off" placeholder="example.com" data-i18n-placeholder="optionsSearchPlaceholder">
         </label>
         <div id="rules-list" class="rules-list" aria-live="polite">
-          <p class="empty-state">No domain rules yet.</p>
+          <p class="empty-state" data-i18n="optionsEmpty">No domain rules yet.</p>
         </div>
       </section>
     </main>
